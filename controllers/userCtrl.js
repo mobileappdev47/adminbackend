@@ -1,5 +1,6 @@
 const genrateToken = require("../config/jwtToken");
 const User = require("../models/userModel");
+const Employee = require("../models/employeModel")
 const asyncHandler = require("express-async-handler");
 const validateMongodbId = require("../utils/validateMongodbid");
 const genrateRefreshToken = require("../config/refreshToken");
@@ -27,6 +28,10 @@ const loginUserCtrl = asyncHandler(async (req, res) => {
   const findUser = await User.findOne({ email });
 
   if (findUser) {
+    if (findUser.blocked) {
+      throw new Error("User is blocked. Contact support for assistance.");
+    }
+
     const currentDate = new Date();
     const restrictionDate = findUser.restrictionDate;
 
@@ -68,6 +73,7 @@ const loginUserCtrl = asyncHandler(async (req, res) => {
     throw new Error("User not found");
   }
 });
+
 
 //login super admin
 const loginAdmin = asyncHandler(async (req, res) => {
@@ -129,6 +135,29 @@ const getaUser = asyncHandler(async (req, res) => {
 });
 
 
+// add restriction date
+const addRestrictionDate = asyncHandler(async(req, res) => {
+  const { userId } = req.params;
+  const { newRestrictionDate } = req.body; // Assuming new restriction date is sent in the request body
+
+  try {
+    const user = await User.findById(userId);
+
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    // Update the restriction date
+    user.restrictionDate = newRestrictionDate;
+    await user.save();
+
+    return res.status(200).json({ message: 'Restriction date updated successfully' });
+  } catch (error) {
+    return res.status(500).json({ message: 'Internal Server Error' });
+  }
+})
+
+
 // delete a admin
 const deleteaUser = asyncHandler(async (req, res) => {
   const { id } = req.params;
@@ -141,6 +170,49 @@ const deleteaUser = asyncHandler(async (req, res) => {
     throw new Error(error);
   }
 });
+
+
+// update status of paid in admin
+const updateStatusUser = asyncHandler(async(req, res) => {
+  try {
+    const { adminId } = req.params;
+
+    // Find the user by ID
+    const user = await User.findById(adminId);
+
+    if (!user) {
+      return res.status(404).json({ message: 'User not found.' });
+    }
+
+    // Check if the user making the request is a superadmin or admin
+    const { role } = req.admin; // Assuming the user's role is stored in req.user
+    if (role !== 'superadmin' && role !== 'admin') {
+      return res.status(403).json({ message: 'Unauthorized: Insufficient privileges.' });
+    }
+
+    // Check if the user found by ID is an admin or superadmin
+    if (user.role !== 'admin' && user.role !== 'superadmin') {
+      return res.status(403).json({ message: 'Unauthorized: User is not an admin.' });
+    }
+
+    const { status } = req.body; // Get the new status from the request body
+
+    // Update the status of the admin user
+    const adminToUpdate = await User.findByIdAndUpdate(
+      adminId,
+      { status },
+      { new: true } // To get the updated document
+    );
+
+    if (!adminToUpdate) {
+      return res.status(404).json({ message: 'Admin not found.' });
+    }
+
+    return res.status(200).json({ message: 'Admin status updated successfully.', admin: adminToUpdate });
+  } catch (error) {
+    return res.status(500).json({ error: error.message });
+  }
+})
 
 // update a admin
 const updatedUser = asyncHandler(async (req, res) => {
@@ -158,12 +230,11 @@ const updatedUser = asyncHandler(async (req, res) => {
     if (!userToUpdate) {
       return res.status(404).json({ message: 'Admin not found' });
     }
-    userToUpdate.email = req?.body?.email || userToUpdate.email;
-    userToUpdate.password = req?.body?.password || userToUpdate.password;
     userToUpdate.firstname = req?.body?.firstname || userToUpdate.firstname;
     userToUpdate.lastname = req?.body?.lastname || userToUpdate.lastname;
+    userToUpdate.address = req?.body?.address || userToUpdate.address;
     userToUpdate.phone = req?.body?.phone || userToUpdate.phone;
-
+    userToUpdate.status = req?.body?.status || userToUpdate.status;
 
     const updatedUser = await userToUpdate.save();
 
@@ -195,6 +266,77 @@ const getAllUsers = asyncHandler(async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
+
+//blockes admin
+const blockedAdmin  = asyncHandler(async (req,res) => {
+  const { userId } = req.params;
+
+  try {
+    const user = await User.findById(userId);
+
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    if (user.blocked) {
+      return res.status(400).json({ message: 'User is already blocked' });
+    }
+
+    user.blocked = true;
+    await user.save();
+
+    res.status(200).json({ message: 'User blocked successfully' });
+  } catch (error) {
+    console.error('Block user error:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
+// unblocked admin
+
+const unblockedAdmin  = asyncHandler( async ( req, res) => {
+  const { userId } = req.params;
+
+  try {
+    const user = await User.findById(userId);
+
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    if (!user.blocked) {
+      return res.status(400).json({ message: 'User is not blocked' });
+    }
+
+    user.blocked = false;
+    await user.save();
+
+    res.status(200).json({ message: 'User unblocked successfully' });
+  } catch (error) {
+    console.error('Unblock user error:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+})
+
+//get all emloyee
+const getAllEmployee = asyncHandler(async(req, res) => {
+  try {
+    const { searchEmployee } = req.query;
+    let employees;
+
+    if (searchEmployee) {
+      employees = await Employee.find({
+        firstname: { $regex: new RegExp(searchEmployee, 'i') }
+      });
+    } else {
+      employees = await Employee.find({});
+    }
+
+    res.json({ employees });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+})
 
 // user add machine
 const addMachineToUserLocation = asyncHandler(async (req, res) => {
@@ -422,5 +564,5 @@ const getMachinebyId = asyncHandler(async (req, res) => {
 })
 
 
-module.exports = { createUser, loginUserCtrl, loginAdmin, getAllUsers, getaUser, deleteaUser, updatedUser, addMachineToUserLocation, updateMachineInUserLocation,
-   deleteMachineFromUser, getMachinesOfUser, getMachinebyId, getMachinesByLocationId }
+module.exports = { createUser, loginUserCtrl, loginAdmin,addRestrictionDate, getAllUsers,getAllEmployee, getaUser, deleteaUser, updatedUser,updateStatusUser, addMachineToUserLocation, updateMachineInUserLocation,
+   deleteMachineFromUser, getMachinesOfUser, getMachinebyId, getMachinesByLocationId, blockedAdmin, unblockedAdmin }

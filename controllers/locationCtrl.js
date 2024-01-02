@@ -3,6 +3,7 @@ const asyncHandler = require("express-async-handler");
 const Location = require('../models/locationModel')
 const User = require('../models/userModel')
 const Employee = require('../models/employeModel')
+const Machine = require('../models/machineModel')
 
 const addLocationToUser = asyncHandler(async (req, res) => {
   const { _id } = req.admin; // Assuming you extract user ID from the bearer token
@@ -130,7 +131,7 @@ const getLocationbyId = asyncHandler(async (req, res) => {
       return res.status(404).json({ message: 'User not found' });
     }
 
-    const location = await Location.findOne({ _id: locationId });
+    const location = await Location.findOne({ _id: locationId }).populate('machines');
     if (!location) {
       return res.status(404).json({ message: 'Location not found' });
     }
@@ -144,7 +145,9 @@ const getLocationbyId = asyncHandler(async (req, res) => {
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
-})
+});
+
+
 
 //   const getLocationsOfUser = asyncHandler(async (req, res) => {
 //     const { userId } = req.params; // Assuming userId is passed in the URL

@@ -13,23 +13,36 @@ const {
     getMachinesOfUser,
     getMachinebyId,
     getMachinesByLocationId,
+    addRestrictionDate,
+    getAllEmployee,
+    updateStatusUser,
+    blockedAdmin,
+    unblockedAdmin,
 } = require('../controllers/userCtrl');
 const { authMiddleware, isAdmin } = require('../middlerwares/authMiddleware');
 const router = express.Router();
 
 router.post('/register',authMiddleware, isAdmin, createUser);
+router.post('/restrictiondate/:userId', authMiddleware, isAdmin, addRestrictionDate)
 
 router.post('/login', loginUserCtrl);
 
 router.post('/admin-login', loginAdmin);
 
 router.get('/alluser', authMiddleware, isAdmin, getAllUsers);
+router.get('/allemployee', authMiddleware, isAdmin, getAllEmployee);
+
 
 router.get('/:id', authMiddleware, getaUser);
 
 router.delete('/:id', authMiddleware, isAdmin, deleteaUser);
 
 router.put('/edit-user/:id', authMiddleware, isAdmin, updatedUser);
+router.put('/block/:userId', authMiddleware, isAdmin, blockedAdmin);
+router.put('/unblock/:userId', authMiddleware, isAdmin, unblockedAdmin);
+
+router.put('/editstatus/:adminId', authMiddleware, isAdmin, updateStatusUser);
+
 
 
 

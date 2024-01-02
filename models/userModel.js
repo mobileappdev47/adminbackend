@@ -33,6 +33,15 @@ var userSchema = new mongoose.Schema(
       type: String,
       default: "admin",
     },
+    status: {
+      type: String,
+      enum: ['paid', 'unpaid'], // Example statuses, modify as needed
+      default: 'unpaid', // Default status
+    },
+    blocked: {
+      type: Boolean,
+      default: false, // Admin is not blocked by default
+    },
     location: [{
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Location',
