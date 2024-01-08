@@ -18,15 +18,16 @@ const createUser = asyncHandler(async (req, res) => {
 
     if (!findUser) {
       const newUser = await User.create(req.body);
-      res.status(201).json(newUser); // HTTP status code 201 for successful creation
+      res.status(201).json({ success: true, user: newUser }); // Added success flag and user object
     } else {
-      res.status(400).json({ message: 'User with this email already exists' }); // HTTP status code 400 for bad request due to duplicate email
+      res.status(400).json({ success: false, message: 'User with this email already exists' }); // Added success flag and error message
     }
   } catch (error) {
     console.error('Error creating user:', error);
-    res.status(500).json({ message: 'Internal Server Error' }); // HTTP status code 500 for internal server error
+    res.status(500).json({ success: false, message: 'Internal Server Error' }); // Added success flag and error message
   }
 });
+
 
 
 
