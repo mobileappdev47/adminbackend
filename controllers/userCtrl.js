@@ -38,151 +38,146 @@ const loginUserCtrl = asyncHandler(async (req, res) => {
 
   if (findUser) {
     if (findUser.blocked) {
-      throw new Error("User is blocked. Contact support for assistance.");
-    }
-
-    const currentDate = new Date();
-    const restrictionDate = findUser.restrictionDate;
-
-    if (!restrictionDate || restrictionDate > currentDate) {
-      if (await findUser.isPasswordMatched(password)) {
-        const refreshToken = genrateRefreshToken(findUser?._id);
-        const updateUser = await User.findByIdAndUpdate(
-          findUser.id,
-          {
-            refreshToken: refreshToken,
-          },
-          {
-            new: true,
-          }
-        );
-
-        res.cookie("refreshToken", refreshToken, {
-          httpOnly: true,
-          maxAge: 72 * 60 * 60 * 1000,
-        });
-
-        res.json({
-          _id: findUser?._id,
-          firstname: findUser?.firstname,
-          lastname: findUser?.lastname,
-          phone: findUser?.phone,
-          email: findUser?.email,
-          role: findUser?.role,
-          restrictionDate: findUser?.restrictionDate,
-          token: genrateToken(findUser?._id),
-        });
-      } else {
-        throw new Error("Invalid Credentials");
-      }
+      res.status(403).json({ success: false, message: "User is blocked. Contact support for assistance." });
     } else {
-      throw new Error("Restricted");
+      const currentDate = new Date();
+      const restrictionDate = findUser.restrictionDate;
+
+      if (!restrictionDate || restrictionDate > currentDate) {
+        if (await findUser.isPasswordMatched(password)) {
+          const refreshToken = generateRefreshToken(findUser?._id);
+          const updateUser = await User.findByIdAndUpdate(
+            findUser.id,
+            { refreshToken },
+            { new: true }
+          );
+
+          res.cookie("refreshToken", refreshToken, { httpOnly: true, maxAge: 72 * 60 * 60 * 1000 });
+
+          res.json({
+            success: true,
+            _id: findUser?._id,
+            firstname: findUser?.firstname,
+            lastname: findUser?.lastname,
+            phone: findUser?.phone,
+            email: findUser?.email,
+            role: findUser?.role,
+            restrictionDate: findUser?.restrictionDate,
+            token: generateToken(findUser?._id),
+          });
+        } else {
+          res.status(401).json({ success: false, message: "Invalid Credentials" });
+        }
+      } else {
+        res.status(403).json({ success: false, message: "Restricted" });
+      }
     }
   } else {
-    throw new Error("User not found");
+    res.status(404).json({ success: false, message: "User not found" });
   }
 });
+
 
 
 //login super admin
 const loginAdmin = asyncHandler(async (req, res) => {
   const { email, password } = req.body;
   const findAdmin = await User.findOne({ email });
-  if (findAdmin.role !== "superadmin") throw new Error("Not Authorized");
-  if (findAdmin && (await findAdmin.isPasswordMatched(password))) {
-    const refreshToken = genrateRefreshToken(findAdmin?._id);
-    const updateuser = await User.findByIdAndUpdate(
+
+  if (!findAdmin || findAdmin.role !== "superadmin" || !(await findAdmin.isPasswordMatched(password))) {
+    res.status(401).json({ success: false, message: "Invalid Credentials" });
+  } else {
+    const refreshToken = generateRefreshToken(findAdmin?._id);
+    const updatedUser = await User.findByIdAndUpdate(
       findAdmin.id,
-      {
-        refreshToken: refreshToken,
-      },
-      {
-        new: true,
-      }
+      { refreshToken },
+      { new: true }
     );
-    res.cookie("refreshToken", refreshToken, {
-      httpOnly: true,
-      maxAge: 72 * 60 * 60 * 1000,
-    });
+
+    res.cookie("refreshToken", refreshToken, { httpOnly: true, maxAge: 72 * 60 * 60 * 1000 });
+
     res.json({
+      success: true,
       _id: findAdmin?._id,
       firstname: findAdmin?.firstname,
       lastname: findAdmin?.lastname,
       email: findAdmin?.email,
       phone: findAdmin?.phone,
-      token: genrateToken(findAdmin?._id),
+      token: generateToken(findAdmin?._id),
     });
-  } else {
-    throw new Error("Invalid Crendantials");
   }
 });
+
 
 // get a admin
 const getaUser = asyncHandler(async (req, res) => {
   const { id } = req.params;
   validateMongodbId(id);
+
   try {
     const getaUser = await User.findById(id).populate({
       path: 'location',
       populate: {
         path: 'machines',
         model: 'Machine',
-      }
-    })
-    .exec();
+      },
+    }).exec();
+
     if (getaUser) {
       const updatedUser = await getaUser.save();
-      res.json({
-        getaUser: updatedUser
-      });
+      res.json({ success: true, getaUser: updatedUser });
     } else {
-      res.status(404).json({ message: 'User not found' });
+      res.status(404).json({ success: false, message: 'User not found' });
     }
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ success: false, error: error.message });
   }
 });
 
 
 // add restriction date
-const addRestrictionDate = asyncHandler(async(req, res) => {
+const addRestrictionDate = asyncHandler(async (req, res) => {
   const { userId } = req.params;
-  const { newRestrictionDate } = req.body; // Assuming new restriction date is sent in the request body
+  const { newRestrictionDate } = req.body;
 
   try {
     const user = await User.findById(userId);
 
     if (!user) {
-      return res.status(404).json({ message: 'User not found' });
+      return res.status(404).json({ success: false, message: 'User not found' });
     }
 
     // Update the restriction date
     user.restrictionDate = newRestrictionDate;
     await user.save();
 
-    return res.status(200).json({ message: 'Restriction date updated successfully' });
+    return res.status(200).json({ success: true, message: 'Restriction date updated successfully' });
   } catch (error) {
-    return res.status(500).json({ message: 'Internal Server Error' });
+    return res.status(500).json({ success: false, message: 'Internal Server Error' });
   }
-})
+});
 
 
 // delete a admin
 const deleteaUser = asyncHandler(async (req, res) => {
   const { id } = req.params;
+
   try {
-    const deleteaUser = await User.findByIdAndDelete(id);
-    res.json({
-      deleteaUser,
-    });
+    const deletedUser = await User.findByIdAndDelete(id);
+
+    if (!deletedUser) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    return res.status(200).json({ success: true, message: 'User deleted successfully' });
   } catch (error) {
-    throw new Error(error);
+    return res.status(500).json({ success: false, message: 'Internal Server Error' });
   }
 });
 
 
 // update status of paid in admin
-const updateStatusUser = asyncHandler(async(req, res) => {
+const updateStatusUser = asyncHandler(async (req, res) => {
   try {
     const { adminId } = req.params;
 
@@ -196,12 +191,12 @@ const updateStatusUser = asyncHandler(async(req, res) => {
     // Check if the user making the request is a superadmin or admin
     const { role } = req.admin; // Assuming the user's role is stored in req.user
     if (role !== 'superadmin' && role !== 'admin') {
-      return res.status(403).json({ message: 'Unauthorized: Insufficient privileges.' });
+      return res.status(403).json({success:false, message: 'Unauthorized: Insufficient privileges.' });
     }
 
     // Check if the user found by ID is an admin or superadmin
     if (user.role !== 'admin' && user.role !== 'superadmin') {
-      return res.status(403).json({ message: 'Unauthorized: User is not an admin.' });
+      return res.status(403).json({success:false, message: 'Unauthorized: You are not superadmin.' });
     }
 
     const { status } = req.body; // Get the new status from the request body
@@ -217,9 +212,9 @@ const updateStatusUser = asyncHandler(async(req, res) => {
       return res.status(404).json({ message: 'Admin not found.' });
     }
 
-    return res.status(200).json({ message: 'Admin status updated successfully.', admin: adminToUpdate });
+    return res.status(200).json({ success: true, message: 'Admin status updated successfully.', admin: adminToUpdate });
   } catch (error) {
-    return res.status(500).json({ error: error.message });
+    return res.status(500).json({success:false, error: error.message });
   }
 })
 
@@ -229,7 +224,7 @@ const updatedUser = asyncHandler(async (req, res) => {
   validateMongodbId(_id);
 
   if (role !== 'superadmin') {
-    return res.status(403).json({ message: 'Unauthorized: Only super admins can update admin.' });
+    return res.status(403).json({ success: false, message: 'Unauthorized: Only super admins can update admin.' });
   }
 
   try {
@@ -237,19 +232,22 @@ const updatedUser = asyncHandler(async (req, res) => {
     const userToUpdate = await User.findById(id);
 
     if (!userToUpdate) {
-      return res.status(404).json({ message: 'Admin not found' });
+      return res.status(404).json({ success: false, message: 'Admin not found' });
     }
-    userToUpdate.firstname = req?.body?.firstname || userToUpdate.firstname;
-    userToUpdate.lastname = req?.body?.lastname || userToUpdate.lastname;
-    userToUpdate.address = req?.body?.address || userToUpdate.address;
-    userToUpdate.phone = req?.body?.phone || userToUpdate.phone;
-    userToUpdate.status = req?.body?.status || userToUpdate.status;
+    // Update user properties based on the request body
+    userToUpdate.firstname = req.body.firstname || userToUpdate.firstname;
+    userToUpdate.lastname = req.body.lastname || userToUpdate.lastname;
+    userToUpdate.address = req.body.address || userToUpdate.address;
+    userToUpdate.phone = req.body.phone || userToUpdate.phone;
+    userToUpdate.status = req.body.status || userToUpdate.status;
+    userToUpdate.email = req.body.email || userToUpdate.email;
+    userToUpdate.password = req.body.password || userToUpdate.password;
 
     const updatedUser = await userToUpdate.save();
 
-    res.json(updatedUser);
+    return res.json({ success: true, message: 'User updated successfully', updatedUser });
   } catch (error) {
-    throw new Error(error);
+    return res.status(500).json({ success: false, message: 'Internal Server Error' });
   }
 });
 
@@ -279,66 +277,68 @@ const getAllUsers = asyncHandler(async (req, res) => {
       .skip(skip)
       .limit(limit);
 
-    res.json({ users, totalPages, currentPage });
+    return res.json({ success: true, users, totalPages, currentPage });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error('Get all users error:', error);
+    return res.status(500).json({ success: false, message: 'Internal Server Error' });
   }
 });
-  
+
+
 
 //blockes admin
-const blockedAdmin  = asyncHandler(async (req,res) => {
+const blockedAdmin = asyncHandler(async (req, res) => {
   const { userId } = req.params;
 
   try {
     const user = await User.findById(userId);
 
     if (!user) {
-      return res.status(404).json({ message: 'User not found' });
+      return res.status(404).json({ success: false, message: 'User not found' });
     }
 
     if (user.blocked) {
-      return res.status(400).json({ message: 'User is already blocked' });
+      return res.status(400).json({ success: false, message: 'User is already blocked' });
     }
 
     user.blocked = true;
     await user.save();
 
-    res.status(200).json({ message: 'User blocked successfully' });
+    res.status(200).json({ success: true, message: 'User blocked successfully' });
   } catch (error) {
     console.error('Block user error:', error);
-    res.status(500).json({ message: 'Internal server error' });
+    res.status(500).json({ success: false, message: 'Internal server error' });
   }
 });
 
 // unblocked admin
 
-const unblockedAdmin  = asyncHandler( async ( req, res) => {
+const unblockedAdmin = asyncHandler(async (req, res) => {
   const { userId } = req.params;
 
   try {
     const user = await User.findById(userId);
 
     if (!user) {
-      return res.status(404).json({ message: 'User not found' });
+      return res.status(404).json({ success: false, message: 'User not found' });
     }
 
     if (!user.blocked) {
-      return res.status(400).json({ message: 'User is not blocked' });
+      return res.status(400).json({ success: false, message: 'User is not blocked' });
     }
 
     user.blocked = false;
     await user.save();
 
-    res.status(200).json({ message: 'User unblocked successfully' });
+    res.status(200).json({ success: true, message: 'User unblocked successfully' });
   } catch (error) {
     console.error('Unblock user error:', error);
-    res.status(500).json({ message: 'Internal server error' });
+    res.status(500).json({ success: false, message: 'Internal server error' });
   }
-})
+});
 
 //get all emloyee
-const getAllEmployee = asyncHandler(async(req, res) => {
+const getAllEmployee = asyncHandler(async (req, res) => {
   try {
     const { searchEmployee } = req.query;
     let employees;
@@ -351,57 +351,56 @@ const getAllEmployee = asyncHandler(async(req, res) => {
       employees = await Employee.find({});
     }
 
-    res.json({ employees });
+    return res.json({ success: true, employees });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error('Get all employees error:', error);
+    return res.status(500).json({ success: false, message: 'Internal Server Error' });
   }
-})
+});
 
 // user add machine
 const addMachineToUserLocation = asyncHandler(async (req, res) => {
   const { userId } = req.params;
-  const { locationId, employeeIds } = req.body; // Get locationId and employeeIds from the request body
+  const { locationId, employeeIds, machineName, serialNumber } = req.body;
 
   try {
     const user = await User.findById(userId).populate('location');
     if (!user) {
-      return res.status(404).json({ message: 'User not found' });
+      return res.status(404).json({ success: false, message: 'User not found' });
     }
 
     const location = user.location.find(loc => loc._id.toString() === locationId);
     if (!location) {
-      return res.status(404).json({ message: 'Location not found for the user' });
+      return res.status(404).json({ success: false, message: 'Location not found' });
     }
 
-    const { machineName, serialNumber } = req.body;
     const newMachine = new Machine({ machineName, serialNumber });
-
-    newMachine.employees = employeeIds; 
+    newMachine.employees = employeeIds;
 
     await newMachine.save();
 
     location.machines = location.machines || [];
     location.machines.push(newMachine._id);
 
-    if (location instanceof mongoose.Document) {
-      await location.save();
-      const updatedUser = await User.findById(userId)
-        .populate({
-          path: 'location',
-          populate: {
-            path: 'machines',
-            model: 'Machine'
-          }
-        })
-        .exec();
-      res.json({ message: 'New machine added to location successfully', updatedUser });
-    } else {
-      return res.status(500).json({ error: 'Error saving location' });
-    }
+    await location.save();
+
+    const updatedUser = await User.findById(userId)
+      .populate({
+        path: 'location',
+        populate: {
+          path: 'machines',
+          model: 'Machine'
+        }
+      })
+      .exec();
+
+    return res.json({ success: true, message: 'New machine added to location successfully', updatedUser });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error('Add machine to user location error:', error);
+    return res.status(500).json({ success: false, message: 'Internal Server Error' });
   }
 });
+
 
 
 
@@ -537,18 +536,18 @@ const getMachinesOfUser = asyncHandler(async (req, res) => {
       return res.status(404).json({ message: 'User not found' });
     }
     const updatedUser = await User.findById(userId)
-        .populate({
-          path: 'location',
+      .populate({
+        path: 'location',
+        populate: {
+          path: 'machines',
+          model: 'Machine',
           populate: {
-            path: 'machines',
-            model: 'Machine',
-            populate: {
-              path: 'employees',
-              model: 'Employee'
-            }
+            path: 'employees',
+            model: 'Employee'
           }
-        })
-        .exec();
+        }
+      })
+      .exec();
 
     res.json({ machines: updatedUser.location });
   } catch (error) {
@@ -559,7 +558,7 @@ const getMachinesOfUser = asyncHandler(async (req, res) => {
 
 // get location machine detail
 const getMachinesByLocationId = asyncHandler(async (req, res) => {
-  const { locationId } = req.params; 
+  const { locationId } = req.params;
 
   try {
     const location = await Location.findById(locationId).populate('machines').exec();
@@ -581,7 +580,7 @@ const getMachinesByLocationId = asyncHandler(async (req, res) => {
 // get location by id
 const getMachinebyId = asyncHandler(async (req, res) => {
   try {
-    const { machineId,userId } = req.params;
+    const { machineId, userId } = req.params;
 
     const user = await User.findById(userId);
     if (!user) {
@@ -603,6 +602,8 @@ const getMachinebyId = asyncHandler(async (req, res) => {
 })
 
 
-module.exports = { createUser, loginUserCtrl, loginAdmin,addRestrictionDate, getAllUsers,getAllEmployee, getaUser, deleteaUser,
-   updatedUser,updateStatusUser, addMachineToUserLocation, updateMachineInUserLocation, updateMachineStatus,
-   deleteMachineFromUser, getMachinesOfUser, getMachinebyId, getMachinesByLocationId, blockedAdmin, unblockedAdmin }
+module.exports = {
+  createUser, loginUserCtrl, loginAdmin, addRestrictionDate, getAllUsers, getAllEmployee, getaUser, deleteaUser,
+  updatedUser, updateStatusUser, addMachineToUserLocation, updateMachineInUserLocation, updateMachineStatus,
+  deleteMachineFromUser, getMachinesOfUser, getMachinebyId, getMachinesByLocationId, blockedAdmin, unblockedAdmin
+}
