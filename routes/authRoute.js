@@ -18,6 +18,7 @@ const {
     updateStatusUser,
     blockedAdmin,
     unblockedAdmin,
+    updateMachineStatus,
 } = require('../controllers/userCtrl');
 const { authMiddleware, isAdmin } = require('../middlerwares/authMiddleware');
 const router = express.Router();
@@ -51,6 +52,7 @@ router.post('/addmachine/:userId', authMiddleware, addMachineToUserLocation)
 router.get('/machines/:userId', authMiddleware, getMachinesOfUser)
 router.get('/machines/location/:locationId', authMiddleware, getMachinesByLocationId)
 router.put('/edit-machine/:userId/:locationId/:machineId', authMiddleware, updateMachineInUserLocation)
+router.put('/machine/:userId/:locationId/:machineId/acitvestatus', authMiddleware, updateMachineStatus)
 router.delete('/delete-machine/:userId/machines/:locationId/location/:machineId', authMiddleware, deleteMachineFromUser)
 router.get('/machine/:userId/:machineId', authMiddleware, getMachinebyId)
 

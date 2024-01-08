@@ -12,10 +12,16 @@ const machineSchema = new mongoose.Schema(
             // required: true,
             unique: true,
         },
+        activeMachineStatus: {
+            type: String,
+            enum: ['active', 'inservice'], 
+            default: 'active', 
+        },
         employees: [{
             type: mongoose.Schema.Types.ObjectId,
             ref: "Employee"
-        }]
+        }],
+        
     },
     {
         timestamps: true,

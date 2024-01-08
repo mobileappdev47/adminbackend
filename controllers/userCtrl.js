@@ -12,14 +12,22 @@ const mongoose = require('mongoose')
 
 // create admin and superadmin
 const createUser = asyncHandler(async (req, res) => {
-  const email = req.body.email;
-  const findUser = await User.findOne({ email: email });
-  if (!findUser) {
-    const newUser = await User.create(req.body);
-    res.json(newUser);
-  } else {
+  try {
+    const email = req.body.email;
+    const findUser = await User.findOne({ email: email });
+
+    if (!findUser) {
+      const newUser = await User.create(req.body);
+      res.status(201).json(newUser); // HTTP status code 201 for successful creation
+    } else {
+      res.status(400).json({ message: 'User with this email already exists' }); // HTTP status code 400 for bad request due to duplicate email
+    }
+  } catch (error) {
+    console.error('Error creating user:', error);
+    res.status(500).json({ message: 'Internal Server Error' }); // HTTP status code 500 for internal server error
   }
 });
+
 
 
 //login admin
@@ -248,24 +256,34 @@ const updatedUser = asyncHandler(async (req, res) => {
 // search and all admins
 const getAllUsers = asyncHandler(async (req, res) => {
   try {
-    const { searchuser } = req.query;
-    let users;
+    const { searchuser, page = 1, limit = 8 } = req.query;
+    let query = { role: { $ne: 'superadmin' } };
 
-    if (!searchuser) {
-      users = await User.find({ role: { $ne: 'superadmin' } });
-    } else {
-      users = await User.find({
+    if (searchuser) {
+      query = {
         $and: [
           { role: { $ne: 'superadmin' } },
           { firstname: { $regex: new RegExp(searchuser, 'i') } }
         ]
-      });
+      };
     }
-    res.json(users);
+
+    const totalCount = await User.countDocuments(query);
+    const totalPages = Math.ceil(totalCount / limit);
+    const currentPage = parseInt(page);
+
+    const skip = (currentPage - 1) * limit;
+
+    const users = await User.find(query)
+      .skip(skip)
+      .limit(limit);
+
+    res.json({ users, totalPages, currentPage });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });
+  
 
 //blockes admin
 const blockedAdmin  = asyncHandler(async (req,res) => {
@@ -424,7 +442,27 @@ const updateMachineInUserLocation = asyncHandler(async (req, res) => {
 });
 
 
+// update machine active status 
+const updateMachineStatus = asyncHandler(async (req, res) => {
+  const { machineId } = req.params;
+  const { activeMachineStatus } = req.body;
 
+  try {
+    const updatedMachine = await Machine.findByIdAndUpdate(
+      machineId,
+      { activeMachineStatus: activeMachineStatus },
+      { new: true }
+    );
+
+    if (!updatedMachine) {
+      return res.status(404).json({ message: 'Machine not found' });
+    }
+
+    res.json({ message: 'Machine active status updated successfully', machine: updatedMachine });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+})
 
 
 
@@ -564,5 +602,6 @@ const getMachinebyId = asyncHandler(async (req, res) => {
 })
 
 
-module.exports = { createUser, loginUserCtrl, loginAdmin,addRestrictionDate, getAllUsers,getAllEmployee, getaUser, deleteaUser, updatedUser,updateStatusUser, addMachineToUserLocation, updateMachineInUserLocation,
+module.exports = { createUser, loginUserCtrl, loginAdmin,addRestrictionDate, getAllUsers,getAllEmployee, getaUser, deleteaUser,
+   updatedUser,updateStatusUser, addMachineToUserLocation, updateMachineInUserLocation, updateMachineStatus,
    deleteMachineFromUser, getMachinesOfUser, getMachinebyId, getMachinesByLocationId, blockedAdmin, unblockedAdmin }

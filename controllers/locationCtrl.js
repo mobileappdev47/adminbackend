@@ -95,7 +95,27 @@ const updateLocation = asyncHandler(async (req, res) => {
   }
 });
 
+//update active status
+const updateActiveStatus = asyncHandler(async(req,res) => {
+  try {
+    const { locationId } = req.params;
+    const { activeStatus } = req.body;
 
+    // Find the location by ID
+    const location = await Location.findById(locationId);
+    if (!location) {
+      return res.status(404).json({ message: 'Location not found' });
+    }
+
+    // Update the activeStatus
+    location.activeStatus = activeStatus;
+    await location.save();
+
+    res.json({ message: 'Active status updated successfully', location });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+}) 
 
 
 const deleteLocation = asyncHandler(async (req, res) => {
@@ -167,23 +187,23 @@ const getLocationbyId = asyncHandler(async (req, res) => {
 
 const getAllLocationsForUser = asyncHandler(async (req, res) => {
   const { userId } = req.params;
-  const { searchLocation } = req.query;
+  const { searchLocation, page = 1, limit = 8 } = req.query;
 
   try {
     const user = await User.findById(userId).populate({
       path: 'location',
-      select: 'locationname address percentage machines createdAt updatedAt employees', // Include 'machines' field for aggregation
+      select: 'locationname address percentage machines createdAt updatedAt employees',
       populate: {
         path: 'machines',
         model: 'Machine',
-        select: '_id' // Select only '_id' to count machines
+        select: '_id'
       }
     }).populate({
       path: 'location',
       populate: {
-        path: 'employees', // Populate employees within each location
-        model: 'Employee', // Replace 'Employee' with your employee model name
-        select: 'firstname lastname' // Select the fields you want for employees
+        path: 'employees',
+        model: 'Employee',
+        select: 'firstname lastname'
       }
     });
 
@@ -193,10 +213,9 @@ const getAllLocationsForUser = asyncHandler(async (req, res) => {
 
     let locations = user.location;
 
-    // Count the number of machines in each location
     locations = await Promise.all(locations.map(async location => {
-      const numofmachines = location.machines.length; // Count the machines
-      return { ...location.toObject(), numofmachines }; // Add numofmachines to the location object
+      const numofmachines = location.machines.length;
+      return { ...location.toObject(), numofmachines };
     }));
 
     if (searchLocation) {
@@ -205,7 +224,15 @@ const getAllLocationsForUser = asyncHandler(async (req, res) => {
       );
     }
 
-    res.json({ locations });
+    const totalCount = locations.length;
+    const totalPages = Math.ceil(totalCount / limit);
+    const currentPage = parseInt(page);
+
+    const skip = (currentPage - 1) * limit;
+
+    const paginatedLocations = locations.slice(skip, skip + limit);
+
+    res.json({ locations: paginatedLocations, totalPages, currentPage });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -218,4 +245,5 @@ const getAllLocationsForUser = asyncHandler(async (req, res) => {
 
 
 
-module.exports = { addLocationToUser, updateLocation, deleteLocation, getAllLocationsForUser, getLocationbyId }
+
+module.exports = { addLocationToUser, updateLocation, deleteLocation, getAllLocationsForUser, getLocationbyId, updateActiveStatus }
