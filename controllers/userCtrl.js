@@ -45,7 +45,7 @@ const loginUserCtrl = asyncHandler(async (req, res) => {
 
       if (!restrictionDate || restrictionDate > currentDate) {
         if (await findUser.isPasswordMatched(password)) {
-          const refreshToken = generateRefreshToken(findUser?._id);
+          const refreshToken = genrateRefreshToken(findUser?._id);
           const updateUser = await User.findByIdAndUpdate(
             findUser.id,
             { refreshToken },
@@ -63,7 +63,7 @@ const loginUserCtrl = asyncHandler(async (req, res) => {
             email: findUser?.email,
             role: findUser?.role,
             restrictionDate: findUser?.restrictionDate,
-            token: generateToken(findUser?._id),
+            token: genrateToken(findUser?._id),
           });
         } else {
           res.status(401).json({ success: false, message: "Invalid Credentials" });
@@ -87,7 +87,7 @@ const loginAdmin = asyncHandler(async (req, res) => {
   if (!findAdmin || findAdmin.role !== "superadmin" || !(await findAdmin.isPasswordMatched(password))) {
     res.status(401).json({ success: false, message: "Invalid Credentials" });
   } else {
-    const refreshToken = generateRefreshToken(findAdmin?._id);
+    const refreshToken = genrateRefreshToken(findAdmin?._id);
     const updatedUser = await User.findByIdAndUpdate(
       findAdmin.id,
       { refreshToken },
@@ -103,7 +103,7 @@ const loginAdmin = asyncHandler(async (req, res) => {
       lastname: findAdmin?.lastname,
       email: findAdmin?.email,
       phone: findAdmin?.phone,
-      token: generateToken(findAdmin?._id),
+      token: genrateToken(findAdmin?._id),
     });
   }
 });
