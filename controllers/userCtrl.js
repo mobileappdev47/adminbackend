@@ -188,18 +188,22 @@ const updateStatusUser = asyncHandler(async (req, res) => {
       return res.status(404).json({ message: 'User not found.' });
     }
 
-    // Check if the user making the request is a superadmin or admin
     const { role } = req.admin; // Assuming the user's role is stored in req.user
     if (role !== 'superadmin' && role !== 'admin') {
-      return res.status(403).json({success:false, message: 'Unauthorized: Insufficient privileges.' });
+      return res.status(403).json({ success: false, message: 'Unauthorized: Insufficient privileges.' });
     }
 
     // Check if the user found by ID is an admin or superadmin
     if (user.role !== 'admin' && user.role !== 'superadmin') {
-      return res.status(403).json({success:false, message: 'Unauthorized: You are not superadmin.' });
+      return res.status(403).json({ success: false, message: 'Unauthorized: You are not superadmin.' });
     }
 
     const { status } = req.body; // Get the new status from the request body
+
+    // Check if the user is already marked as paid
+    if (user.status === 'paid' && status === 'paid') {
+      return res.status(400).json({ success: false, message: 'User is already paid.' });
+    }
 
     // Update the status of the admin user
     const adminToUpdate = await User.findByIdAndUpdate(
@@ -214,9 +218,10 @@ const updateStatusUser = asyncHandler(async (req, res) => {
 
     return res.status(200).json({ success: true, message: 'Admin status updated successfully.', admin: adminToUpdate });
   } catch (error) {
-    return res.status(500).json({success:false, error: error.message });
+    return res.status(500).json({ success: false, error: error.message });
   }
-})
+});
+
 
 // update a admin
 const updatedUser = asyncHandler(async (req, res) => {
@@ -255,7 +260,8 @@ const updatedUser = asyncHandler(async (req, res) => {
 // search and all admins
 const getAllUsers = asyncHandler(async (req, res) => {
   try {
-    const { searchuser, page = 1, limit = 8 } = req.query;
+    const { searchuser, page, limit } = req.query;
+
     let query = { role: { $ne: 'superadmin' } };
 
     if (searchuser) {
@@ -267,17 +273,26 @@ const getAllUsers = asyncHandler(async (req, res) => {
       };
     }
 
-    const totalCount = await User.countDocuments(query);
-    const totalPages = Math.ceil(totalCount / limit);
-    const currentPage = parseInt(page);
+    if (page && limit) {
+      const currentPage = parseInt(page);
+      const pageSize = parseInt(limit);
 
-    const skip = (currentPage - 1) * limit;
+      const totalCount = await User.countDocuments(query);
+      const totalPages = Math.ceil(totalCount / pageSize);
 
-    const users = await User.find(query)
-      .skip(skip)
-      .limit(limit);
+      const skip = (currentPage - 1) * pageSize;
 
-    return res.json({ success: true, users, totalPages, currentPage });
+      const users = await User.find(query)
+        .skip(skip)
+        .limit(pageSize);
+
+      return res.json({ success: true, users, totalPages, currentPage, totalCount });
+    }
+
+    // If no page and limit provided, fetch all users without pagination
+    const users = await User.find(query);
+
+    return res.json({ success: true, users });
   } catch (error) {
     console.error('Get all users error:', error);
     return res.status(500).json({ success: false, message: 'Internal Server Error' });

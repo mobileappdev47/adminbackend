@@ -7,11 +7,11 @@ const Machine = require('../models/machineModel')
 
 const addLocationToUser = asyncHandler(async (req, res) => {
   const { _id } = req.admin; // Assuming you extract user ID from the bearer token
-  const { employeeIds } = req.body; // Array of employee IDs
+  const { employeeIds, locationname, address, percentage } = req.body; // Array of employee IDs
 
   try {
     if (!employeeIds || !Array.isArray(employeeIds)) {
-      return res.status(400).json({ message: 'Invalid or missing employeeIds in the request body' });
+      return res.status(400).json({ success: false, message: 'Invalid or missing employeeIds in the request body' });
     }
 
     const user = await User.findById(_id).populate({
@@ -23,20 +23,19 @@ const addLocationToUser = asyncHandler(async (req, res) => {
     });
 
     if (!user) {
-      return res.status(404).json({ message: 'User not found' });
+      return res.status(404).json({ success: false, message: 'User not found' });
     }
 
     if (!user.employees || user.employees.length === 0) {
-      return res.status(404).json({ message: 'User has no employees' });
+      return res.status(404).json({ success: false, message: 'User has no employees' });
     }
 
     // Find the employees by IDs within the user's employees array
     const employeesToAdd = user.employees.filter(emp => employeeIds.includes(emp._id.toString()));
     if (!employeesToAdd || employeesToAdd.length !== employeeIds.length) {
-      return res.status(404).json({ message: 'One or more employees not found' });
+      return res.status(404).json({ success: false, message: 'One or more employees not found' });
     }
 
-    const { locationname, address, percentage } = req.body;
     const newLocation = new Location({ locationname, address, percentage });
 
     // Add the filtered employees to the new location's employees array
@@ -55,11 +54,12 @@ const addLocationToUser = asyncHandler(async (req, res) => {
       }
     });
 
-    res.json({ message: 'New location added to user successfully', user: updatedUser });
+    return res.status(201).json({ success: true, message: 'New location added to user successfully', user: updatedUser });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    return res.status(500).json({ success: false, error: error.message });
   }
 });
+
 
 
 // update location
@@ -70,13 +70,13 @@ const updateLocation = asyncHandler(async (req, res) => {
   try {
     const user = await User.findById(userId);
     if (!user) {
-      return res.status(404).json({ message: 'User not found' });
+      return res.status(404).json({ success: false, message: 'User not found' });
     }
 
     // Check if the location belongs to the user
     const isLocationBelongsToUser = user.location.includes(locationId);
     if (!isLocationBelongsToUser) {
-      return res.status(404).json({ message: 'Location not found for the user' });
+      return res.status(404).json({ success: false, message: 'Location not found for the user' });
     }
 
     const updatedLocation = await Location.findOneAndUpdate(
@@ -86,12 +86,12 @@ const updateLocation = asyncHandler(async (req, res) => {
     );
 
     if (!updatedLocation) {
-      return res.status(404).json({ message: 'Location not found' });
+      return res.status(404).json({ success: false, message: 'Location not found' });
     }
 
-    res.json({ message: 'Location details updated successfully', location: updatedLocation });
+    return res.json({ success: true, message: 'Location details updated successfully', location: updatedLocation });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    return res.status(500).json({ success: false, error: error.message });
   }
 });
 
@@ -117,27 +117,27 @@ const updateActiveStatus = asyncHandler(async(req,res) => {
   }
 }) 
 
-
+// delete location
 const deleteLocation = asyncHandler(async (req, res) => {
   const { userId, locationId } = req.params;
 
   try {
     const user = await User.findById(userId);
     if (!user) {
-      return res.status(404).json({ message: 'User not found' });
+      return res.status(404).json({ success: false, message: 'User not found' });
     }
 
     const isValidLocationId = user.location.some(id => id.toString() === locationId);
     if (!isValidLocationId) {
-      return res.status(404).json({ message: 'Location not found for this user' });
+      return res.status(404).json({ success: false, message: 'Location not found for this user' });
     }
 
     user.location = user.location.filter(id => id.toString() !== locationId);
     await user.save();
 
-    res.json({ message: 'Location deleted successfully', user });
+    return res.json({ success: true, message: 'Location deleted successfully', user });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    return res.status(500).json({ success: false, error: error.message });
   }
 });
 
