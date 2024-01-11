@@ -25,10 +25,10 @@ var employeeSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
-    activeEmployeeStatus: {
+    activeEmployeeStatus : {
       type: String,
-      enum: ['active', 'inactive'],
-      default: 'active',
+      enum: ['Active', 'In Active'],
+      default: 'Active',
     },
     password: {
       type: String,

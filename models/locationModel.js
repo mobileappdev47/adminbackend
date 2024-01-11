@@ -28,8 +28,8 @@ const locationSchema = new mongoose.Schema(
         },
         activeStatus: {
             type: String,
-            enum: ['active', 'pending', 'closed'], // Define the allowed statuses
-            default: 'active', // Set a default status if needed
+            enum: ['Active', 'Pending', 'Closed'], // Define the allowed statuses
+            default: 'Active', // Set a default status if needed
         },
     },
     {

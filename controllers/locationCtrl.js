@@ -96,7 +96,7 @@ const updateLocation = asyncHandler(async (req, res) => {
 });
 
 //update active status
-const updateActiveStatus = asyncHandler(async(req,res) => {
+const updateActiveStatus = asyncHandler(async (req, res) => {
   try {
     const { locationId } = req.params;
     const { activeStatus } = req.body;
@@ -104,18 +104,18 @@ const updateActiveStatus = asyncHandler(async(req,res) => {
     // Find the location by ID
     const location = await Location.findById(locationId);
     if (!location) {
-      return res.status(404).json({ message: 'Location not found' });
+      return res.status(404).json({ success: false, message: 'Location not found' });
     }
 
     // Update the activeStatus
     location.activeStatus = activeStatus;
     await location.save();
 
-    res.json({ message: 'Active status updated successfully', location });
+    return res.json({ success: true, message: 'Active status updated successfully', location });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    return res.status(500).json({ success: false, error: error.message });
   }
-}) 
+});
 
 // delete location
 const deleteLocation = asyncHandler(async (req, res) => {
@@ -166,8 +166,6 @@ const getLocationbyId = asyncHandler(async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 })
-
-
 
 //   const getLocationsOfUser = asyncHandler(async (req, res) => {
 //     const { userId } = req.params; // Assuming userId is passed in the URL
@@ -237,10 +235,6 @@ const getAllLocationsForUser = asyncHandler(async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
-
-
-
-
 
 
 

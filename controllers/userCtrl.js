@@ -376,7 +376,7 @@ const getAllEmployee = asyncHandler(async (req, res) => {
 // user add machine
 const addMachineToUserLocation = asyncHandler(async (req, res) => {
   const { userId } = req.params;
-  const { locationId, employeeIds, machineName, serialNumber } = req.body;
+  const { locationId, employeeIds, machineNumber, serialNumber } = req.body;
 
   try {
     const user = await User.findById(userId).populate('location');
@@ -389,7 +389,7 @@ const addMachineToUserLocation = asyncHandler(async (req, res) => {
       return res.status(404).json({ success: false, message: 'Location not found' });
     }
 
-    const newMachine = new Machine({ machineName, serialNumber });
+    const newMachine = new Machine({ machineNumber, serialNumber });
     newMachine.employees = employeeIds;
 
     await newMachine.save();
@@ -417,28 +417,33 @@ const addMachineToUserLocation = asyncHandler(async (req, res) => {
 });
 
 
-
-
 // update machine
 const updateMachineInUserLocation = asyncHandler(async (req, res) => {
-  const { userId, machineId, locationId } = req.params; // Extract locationId from params
-  const { machineName, serialNumber, employeeIds } = req.body; // No need to add locationId
+  const { userId } = req.params;
+  const { locationId, machineId, machineNumber, serialNumber, employeeIds } = req.body;
 
   try {
-    const updatedMachine = await Machine.findByIdAndUpdate(
-      machineId,
-      { machineName, serialNumber, location: locationId }, // Set locationId for the machine
-      { new: true }
-    );
-
-    if (!updatedMachine) {
-      return res.status(404).json({ message: 'Machine not found' });
+    const user = await User.findById(userId).populate('location');
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
     }
 
-    // Update employees for the machine
-    updatedMachine.employees = employeeIds; // Assuming employeeIds is an array of employee IDs
+    const location = user.location.find(loc => loc._id.toString() === locationId);
+    if (!location) {
+      return res.status(404).json({ success: false, message: 'Location not found' });
+    }
 
-    await updatedMachine.save();
+    const existingMachine = await Machine.findById(machineId);
+    if (!existingMachine) {
+      return res.status(404).json({ success: false, message: 'Machine not found' });
+    }
+
+    // Update machine details if provided in the request
+    existingMachine.machineNumber = machineNumber || existingMachine.machineNumber;
+    existingMachine.serialNumber = serialNumber || existingMachine.serialNumber;
+    existingMachine.employees = employeeIds || existingMachine.employees;
+
+    const updatedMachine = await existingMachine.save();
 
     const updatedUser = await User.findById(userId)
       .populate({
@@ -450,9 +455,14 @@ const updateMachineInUserLocation = asyncHandler(async (req, res) => {
       })
       .exec();
 
-    res.json({ message: 'Machine details updated successfully', user: updatedUser });
+    return res.json({
+      success: true,
+      message: 'Machine updated successfully',
+      updatedUser,
+    });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error('Update machine in user location error:', error);
+    return res.status(500).json({ success: false, message: 'Internal Server Error' });
   }
 });
 
@@ -470,14 +480,19 @@ const updateMachineStatus = asyncHandler(async (req, res) => {
     );
 
     if (!updatedMachine) {
-      return res.status(404).json({ message: 'Machine not found' });
+      return res.status(404).json({ success: false, message: 'Machine not found', statusCode: 404 });
     }
 
-    res.json({ message: 'Machine active status updated successfully', machine: updatedMachine });
+    return res.status(200).json({
+      success: true,
+      message: 'Machine active status updated successfully',
+      machine: updatedMachine,
+      statusCode: 200,
+    });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    return res.status(500).json({ success: false, error: error.message, statusCode: 500 });
   }
-})
+});
 
 
 
@@ -488,17 +503,17 @@ const deleteMachineFromUser = asyncHandler(async (req, res) => {
   try {
     const user = await User.findById(userId).populate('location');
     if (!user) {
-      return res.status(404).json({ message: 'User not found' });
+      return res.status(404).json({ success: false, message: 'User not found', statusCode: 404 });
     }
 
     const location = user.location.find(loc => loc._id.toString() === locationId);
     if (!location) {
-      return res.status(404).json({ message: 'Location not found for the user' });
+      return res.status(404).json({ success: false, message: 'Location not found for the user', statusCode: 404 });
     }
 
     const machineIndex = location.machines.findIndex(mach => mach._id.toString() === machineId);
     if (machineIndex === -1) {
-      return res.status(404).json({ message: 'Machine not found in this location' });
+      return res.status(404).json({ success: false, message: 'Machine not found in this location', statusCode: 404 });
     }
 
     const deletedMachine = location.machines[machineIndex];
@@ -518,15 +533,11 @@ const deleteMachineFromUser = asyncHandler(async (req, res) => {
       })
       .exec();
 
-    res.json({ message: 'Machine deleted successfully', updatedUser });
+    return res.status(200).json({ success: true, message: 'Machine deleted successfully', updatedUser, statusCode: 200 });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    return res.status(500).json({ success: false, error: error.message, statusCode: 500 });
   }
 });
-
-
-
-
 
 // get a machines 
 const getMachinesOfUser = asyncHandler(async (req, res) => {
@@ -548,8 +559,9 @@ const getMachinesOfUser = asyncHandler(async (req, res) => {
       .exec();
 
     if (!userWithLocationsAndMachines) {
-      return res.status(404).json({ message: 'User not found' });
+      return res.status(404).json({ success: false, message: 'User not found', statusCode: 404 });
     }
+
     const updatedUser = await User.findById(userId)
       .populate({
         path: 'location',
@@ -564,11 +576,12 @@ const getMachinesOfUser = asyncHandler(async (req, res) => {
       })
       .exec();
 
-    res.json({ machines: updatedUser.location });
+    return res.status(200).json({ success: true, machines: updatedUser.location, statusCode: 200 });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    return res.status(500).json({ success: false, error: error.message, statusCode: 500 });
   }
 });
+
 
 
 // get location machine detail

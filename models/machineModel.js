@@ -14,8 +14,8 @@ const machineSchema = new mongoose.Schema(
         },
         activeMachineStatus: {
             type: String,
-            enum: ['active', 'inservice'], 
-            default: 'active', 
+            enum: ['Active', 'In Service'], 
+            default: 'Active', 
         },
         employees: [{
             type: mongoose.Schema.Types.ObjectId,
