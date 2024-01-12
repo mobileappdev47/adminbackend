@@ -11,6 +11,24 @@ const crypto = require("crypto");
 const mongoose = require('mongoose')
 
 // create admin and superadmin
+
+const createSuperAdmin = asyncHandler(async (req, res) => {
+  try {
+    const email = req.body.email;
+    const findUser = await User.findOne({ email: email });
+
+    if (!findUser) {
+      const newUser = await User.create({ ...req.body, role: 'superadmin' });
+      res.status(201).json({ success: true, user: newUser });
+    } else {
+      res.status(400).json({ success: false, message: 'User with this email already exists' });
+    }
+  } catch (error) {
+    console.error('Error creating superadmin:', error);
+    res.status(500).json({ success: false, message: 'Internal Server Error' });
+  }
+});
+
 const createUser = asyncHandler(async (req, res) => {
   try {
     const email = req.body.email;
@@ -640,7 +658,7 @@ const getMachinebyId = asyncHandler(async (req, res) => {
 })
 
 
-module.exports = {
+module.exports = {createSuperAdmin,
   createUser, loginUserCtrl, loginAdmin, addRestrictionDate, getAllUsers, getAllEmployee, getaUser, deleteaUser,
   updatedUser, updateStatusUser, addMachineToUserLocation, updateMachineInUserLocation, updateMachineStatus,
   deleteMachineFromUser, getMachinesOfUser, getMachinebyId, getMachinesByLocationId, blockedAdmin, unblockedAdmin

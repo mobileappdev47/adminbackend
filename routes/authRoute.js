@@ -19,11 +19,14 @@ const {
     blockedAdmin,
     unblockedAdmin,
     updateMachineStatus,
+    createSuperAdmin,
 } = require('../controllers/userCtrl');
 const { authMiddleware, isAdmin } = require('../middlerwares/authMiddleware');
 const router = express.Router();
 
 router.post('/register',authMiddleware, isAdmin, createUser);
+router.post('/register/superadmin', createSuperAdmin);
+
 router.post('/restrictiondate/:userId', authMiddleware, isAdmin, addRestrictionDate)
 
 router.post('/login', loginUserCtrl);
