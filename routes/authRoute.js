@@ -52,7 +52,7 @@ router.post('/addmachine/:userId', authMiddleware, addMachineToUserLocation)
 router.get('/machines/:userId', authMiddleware, getMachinesOfUser)
 router.get('/machines/location/:locationId', authMiddleware, getMachinesByLocationId)
 router.put('/edit-machine/:userId', authMiddleware, updateMachineInUserLocation)
-router.put('/machine/:userId/:locationId/:machineId/acitvestatus', authMiddleware, updateMachineStatus)
+router.put('/machine/:userId/:machineId/acitvestatus', authMiddleware, updateMachineStatus)
 router.delete('/delete-machine/:userId/machines/:locationId/location/:machineId', authMiddleware, deleteMachineFromUser)
 router.get('/machine/:userId/:machineId', authMiddleware, getMachinebyId)
 

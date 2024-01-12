@@ -420,17 +420,12 @@ const addMachineToUserLocation = asyncHandler(async (req, res) => {
 // update machine
 const updateMachineInUserLocation = asyncHandler(async (req, res) => {
   const { userId } = req.params;
-  const { locationId, machineId, machineNumber, serialNumber, employeeIds } = req.body;
+  const { machineId, machineNumber, serialNumber, employeeIds } = req.body;
 
   try {
     const user = await User.findById(userId).populate('location');
     if (!user) {
       return res.status(404).json({ success: false, message: 'User not found' });
-    }
-
-    const location = user.location.find(loc => loc._id.toString() === locationId);
-    if (!location) {
-      return res.status(404).json({ success: false, message: 'Location not found' });
     }
 
     const existingMachine = await Machine.findById(machineId);
@@ -469,20 +464,34 @@ const updateMachineInUserLocation = asyncHandler(async (req, res) => {
 
 // update machine active status 
 const updateMachineStatus = asyncHandler(async (req, res) => {
-  const { machineId } = req.params;
+  const { machineId, userId } = req.params;
   const { activeMachineStatus } = req.body;
 
   try {
+    // Check if userId is provided
+    if (!userId) {
+      return res.status(400).json({ success: false, message: 'UserId is required', statusCode: 400 });
+    }
+
+    // Check if the user with the provided userId exists
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found', statusCode: 404 });
+    }
+
+    // Find and update the machine
     const updatedMachine = await Machine.findByIdAndUpdate(
       machineId,
-      { activeMachineStatus: activeMachineStatus },
+      { activeMachineStatus },
       { new: true }
     );
 
+    // Check if the machine was found and updated
     if (!updatedMachine) {
       return res.status(404).json({ success: false, message: 'Machine not found', statusCode: 404 });
     }
 
+    // Return success response
     return res.status(200).json({
       success: true,
       message: 'Machine active status updated successfully',
@@ -490,6 +499,7 @@ const updateMachineStatus = asyncHandler(async (req, res) => {
       statusCode: 200,
     });
   } catch (error) {
+    // Handle any errors that occurred during the update
     return res.status(500).json({ success: false, error: error.message, statusCode: 500 });
   }
 });
