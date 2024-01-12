@@ -167,26 +167,26 @@ const updateStatusOfEmployee = asyncHandler(async (req, res) => {
   const { activeEmployeeStatus } = req.body;
 
   try {
-      // Find the employee by ID
-      const updatedEmployee = await Employee.findByIdAndUpdate(
-          employeeId,
-          { $set: { activeEmployeeStatus } },
-          { new: true }
-      );
+    // Find the employee by ID
+    const updatedEmployee = await Employee.findByIdAndUpdate(
+      employeeId,
+      { $set: { activeEmployeeStatus } },
+      { new: true }
+    );
 
-      if (!updatedEmployee) {
-          return res.status(404).json({ success: false, message: 'Employee not found', statusCode: 404 });
-      }
+    if (!updatedEmployee) {
+      return res.status(404).json({ success: false, message: 'Employee not found', statusCode: 404 });
+    }
 
-      const user = await User.findOne({ _id: userId, employees: employeeId });
+    const user = await User.findOne({ _id: userId, employees: employeeId });
 
-      if (!user) {
-          return res.status(404).json({ success: false, message: 'Employee does not belong to the user', statusCode: 404 });
-      }
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'Employee does not belong to the user', statusCode: 404 });
+    }
 
-      res.status(200).json({ success: true, message: 'Employee status updated successfully', employee: updatedEmployee, statusCode: 200 });
+    res.status(200).json({ success: true, message: 'Employee status updated successfully', employee: updatedEmployee, statusCode: 200 });
   } catch (error) {
-      res.status(500).json({ success: false, error: error.message, statusCode: 500 });
+    res.status(500).json({ success: false, error: error.message, statusCode: 500 });
   }
 });
 
@@ -246,7 +246,7 @@ const getAllEmployeesForUser = asyncHandler(async (req, res) => {
       employees,
       currentPage: parseInt(page),
       limit: parseInt(limit),
-      totalCount: user.employees.length, 
+      totalCount: user.employees.length,
       statusCode: 200,
     });
   } catch (error) {
@@ -255,6 +255,67 @@ const getAllEmployeesForUser = asyncHandler(async (req, res) => {
 });
 
 
+// get all users employee
+const getAllUsersEmployees = asyncHandler(async (req, res) => {
+  const { searchEmployee, page, limit } = req.query;
+
+  try {
+    // Check if req.admin exists
+    if (!req.admin) {
+      return res.status(403).json({
+        success: false,
+        message: 'Permission denied. You are not authorized to access this data.',
+        statusCode: 403,
+      });
+    }
+
+    // Retrieve all users and populate the 'employees' field
+    const users = await User.find({}).populate('employees');
+
+    // Collect all employees from all users
+    let allEmployees = [];
+
+    // Loop through each user to collect their employees
+    for (const user of users) {
+      allEmployees = allEmployees.concat(user.employees);
+    }
+
+    // Apply search filter if provided
+    let filteredEmployees = allEmployees;
+    if (searchEmployee) {
+      filteredEmployees = allEmployees.filter(employee =>
+        employee.firstname.toLowerCase().includes(searchEmployee.toLowerCase())
+      );
+    }
+
+    // Pagination
+    let paginatedEmployees = filteredEmployees;
+    let totalPages = 1;
+
+    if (page && limit) {
+      const startIndex = (page - 1) * limit;
+      const endIndex = startIndex + parseInt(limit);
+      paginatedEmployees = filteredEmployees.slice(startIndex, endIndex);
+      totalPages = Math.ceil(filteredEmployees.length / parseInt(limit));
+    }
+
+    res.status(200).json({
+      success: true,
+      employees: paginatedEmployees,
+      currentPage: page ? parseInt(page) : 1,
+      limit: limit ? parseInt(limit) : filteredEmployees.length,
+      totalPages,
+      statusCode: 200,
+    });
+  } catch (error) {
+    console.error('Error:', error);
+    res.status(500).json({ success: false, error: error.message, statusCode: 500 });
+  }
+});
 
 
-module.exports = { addEmployeeToAdmin, loginEmployeeCtrl, getEmployeeById, updateEmployee, deleteEmployee, getAllEmployeesForUser, updateStatusOfEmployee }
+
+
+
+
+module.exports = { addEmployeeToAdmin, loginEmployeeCtrl, getEmployeeById, updateEmployee, deleteEmployee, getAllEmployeesForUser, updateStatusOfEmployee, getAllUsersEmployees }
