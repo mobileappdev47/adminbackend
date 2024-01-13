@@ -206,7 +206,7 @@ const getAllLocationsForUser = asyncHandler(async (req, res) => {
     });
 
     if (!user) {
-      return res.status(404).json({ success: false, message: 'User not found' });
+      return res.status(404).json({ message: 'User not found' });
     }
 
     let locations = user.location;
@@ -230,16 +230,11 @@ const getAllLocationsForUser = asyncHandler(async (req, res) => {
 
     const paginatedLocations = locations.slice(skip, skip + limit);
 
-    res.json({
-      success: true,
-      message: 'Locations retrieved successfully',
-      data: { locations: paginatedLocations, totalPages, currentPage },
-    });
+    res.json({ locations: paginatedLocations, totalPages, currentPage });
   } catch (error) {
-    res.status(500).json({ success: false, message: 'Internal Server Error', error: error.message });
+    res.status(500).json({ error: error.message });
   }
 });
-
 
 
 
