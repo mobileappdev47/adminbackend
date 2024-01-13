@@ -6,7 +6,7 @@ const validateMongodbId = require("../utils/validateMongodbid");
 const User = require('../models/userModel')
 
 
-
+// add employee to admin
 const addEmployeeToAdmin = asyncHandler(async (req, res) => {
   try {
     const { userId } = req.params;
@@ -19,6 +19,7 @@ const addEmployeeToAdmin = asyncHandler(async (req, res) => {
       password
     } = req.body;
 
+    // Create the employee object and save it to the database
     const newEmployee = new Employee({
       firstname,
       lastname,
@@ -28,14 +29,17 @@ const addEmployeeToAdmin = asyncHandler(async (req, res) => {
       password
     });
 
+    // Save the new employee to the database
     await newEmployee.save();
 
+    // Add the employee's ID to the user's employees array
     const user = await User.findByIdAndUpdate(
       userId,
       { $push: { employees: newEmployee._id } },
       { new: true }
     );
 
+    // Now you can send the response after saving the employee
     res.status(201).json({
       success: true,
       message: 'Employee created and added to the user',
@@ -51,6 +55,7 @@ const addEmployeeToAdmin = asyncHandler(async (req, res) => {
     });
   }
 });
+
 
 
 // login employee
@@ -217,40 +222,48 @@ const deleteEmployee = asyncHandler(async (req, res) => {
 
 // search and all Employee
 const getAllEmployeesForUser = asyncHandler(async (req, res) => {
-  const { userId } = req.params;
-  const { searchEmployee, page, limit } = req.query;
+  const {userId} = req.params;
+  const { page, limit, searchEmployee } = req.query;
 
   try {
+    let query = {};
+
+    if (searchEmployee) {
+      // Add a case-insensitive search for employee firstname
+      query = { firstname: { $regex: new RegExp(searchEmployee, 'i') } };
+    }
+
     const user = await User.findById(userId).populate({
-      path: 'employees',
+      path: "employees",
+      match: query,  // Apply the search query to filter employees
       options: {
-        skip: parseInt(page - 1) * parseInt(limit),
-        limit: parseInt(limit),
+        limit: page ? parseInt(page) : undefined,
+        skip: page ? (parseInt(page) - 1) * (limit ? parseInt(limit) : 10) : undefined,
       },
     });
 
     if (!user) {
-      return res.status(404).json({ success: false, message: 'User not found', statusCode: 404 });
+      return res.status(404).json({ success: false, message: "User not found", statusCode: 404 });
     }
 
-    let employees = user.employees;
+    const employees = user.employees;
+    const totalCount = await Employee.countDocuments({ _id: { $in: employees }, ...query });
 
-    if (searchEmployee) {
-      employees = employees.filter(employee =>
-        employee.firstname.toLowerCase().includes(searchEmployee.toLowerCase())
-      );
-    }
-
-    res.status(200).json({
+    res.json({
       success: true,
-      employees,
-      currentPage: parseInt(page),
-      limit: parseInt(limit),
-      totalCount: user.employees.length,
+      message: "Employees retrieved successfully",
+      data: {
+        employees,
+        totalCount,
+        currentPage: page ? parseInt(page) : undefined,
+        totalPages: page ? Math.ceil(totalCount / (limit ? parseInt(limit) : 10)) : undefined,
+        pageSize: limit ? parseInt(limit) : undefined,
+      },
       statusCode: 200,
     });
   } catch (error) {
-    res.status(500).json({ success: false, error: error.message, statusCode: 500 });
+    console.error(error);
+    res.status(500).json({ success: false, message: "Internal Server Error", statusCode: 500 });
   }
 });
 
