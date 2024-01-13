@@ -370,26 +370,6 @@ const unblockedAdmin = asyncHandler(async (req, res) => {
   }
 });
 
-//get all emloyee
-const getAllEmployee = asyncHandler(async (req, res) => {
-  try {
-    const { searchEmployee } = req.query;
-    let employees;
-
-    if (searchEmployee) {
-      employees = await Employee.find({
-        firstname: { $regex: new RegExp(searchEmployee, 'i') }
-      });
-    } else {
-      employees = await Employee.find({});
-    }
-
-    return res.json({ success: true, employees });
-  } catch (error) {
-    console.error('Get all employees error:', error);
-    return res.status(500).json({ success: false, message: 'Internal Server Error' });
-  }
-});
 
 // user add machine
 const addMachineToUserLocation = asyncHandler(async (req, res) => {
@@ -659,7 +639,7 @@ const getMachinebyId = asyncHandler(async (req, res) => {
 
 
 module.exports = {createSuperAdmin,
-  createUser, loginUserCtrl, loginAdmin, addRestrictionDate, getAllUsers, getAllEmployee, getaUser, deleteaUser,
+  createUser, loginUserCtrl, loginAdmin, addRestrictionDate, getAllUsers, getaUser, deleteaUser,
   updatedUser, updateStatusUser, addMachineToUserLocation, updateMachineInUserLocation, updateMachineStatus,
   deleteMachineFromUser, getMachinesOfUser, getMachinebyId, getMachinesByLocationId, blockedAdmin, unblockedAdmin
 }

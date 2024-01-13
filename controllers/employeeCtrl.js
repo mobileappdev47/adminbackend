@@ -222,7 +222,7 @@ const deleteEmployee = asyncHandler(async (req, res) => {
 
 // search and all Employee
 const getAllEmployeesForUser = asyncHandler(async (req, res) => {
-  const {userId} = req.params;
+  const { userId } = req.params;
   const { page, limit, searchEmployee } = req.query;
 
   try {
@@ -252,13 +252,11 @@ const getAllEmployeesForUser = asyncHandler(async (req, res) => {
     res.json({
       success: true,
       message: "Employees retrieved successfully",
-      data: {
-        employees,
-        totalCount,
-        currentPage: page ? parseInt(page) : undefined,
-        totalPages: page ? Math.ceil(totalCount / (limit ? parseInt(limit) : 10)) : undefined,
-        pageSize: limit ? parseInt(limit) : undefined,
-      },
+      employees,
+      totalCount,
+      currentPage: page ? parseInt(page) : undefined,
+      totalPages: page ? Math.ceil(totalCount / (limit ? parseInt(limit) : 10)) : undefined,
+      pageSize: limit ? parseInt(limit) : undefined,
       statusCode: 200,
     });
   } catch (error) {

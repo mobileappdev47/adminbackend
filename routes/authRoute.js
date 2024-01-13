@@ -14,7 +14,6 @@ const {
     getMachinebyId,
     getMachinesByLocationId,
     addRestrictionDate,
-    getAllEmployee,
     updateStatusUser,
     blockedAdmin,
     unblockedAdmin,
@@ -34,7 +33,6 @@ router.post('/login', loginUserCtrl);
 router.post('/admin-login', loginAdmin);
 
 router.get('/alluser', authMiddleware, isAdmin, getAllUsers);
-router.get('/allemployee', authMiddleware, isAdmin, getAllEmployee);
 
 
 router.get('/:id', authMiddleware, getaUser);
