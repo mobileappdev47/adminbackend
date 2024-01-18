@@ -25,7 +25,7 @@ router.get('/machine/:employeeId', employeeMiddleware, getAllMachinesForEmployee
 router.post('/register/:userId', authMiddleware, addEmployeeToAdmin);
 router.post('/login', loginEmployeeCtrl);
 router.get('/:userId/:employeeId', authMiddleware, getEmployeeById)
-router.put('/edit-employee/:userId/employee/:employeeId', authMiddleware, updateEmployee)
+router.put('/edit-employee/:employeeId', employeeMiddleware, updateEmployee)
 router.put('/employeestatus/:userId/:employeeId', authMiddleware, updateStatusOfEmployee)
 router.delete('/delete/:userId/:employeeId', authMiddleware, deleteEmployee)
 

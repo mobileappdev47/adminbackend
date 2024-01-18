@@ -74,22 +74,6 @@ userSchema.pre("save", async function (next) {
   if (!this.isModified("password")) {
     return next();
   }
-
-  // Set accountValid to false initially
-  this.accountValid = false;
-
-  // Calculate the minimum time for accountValid to be true
-  const minimumValidTime = new Date(this.createdAt.getTime() + this.freeTrialDuration);
-
-  // Check if the current time is greater than or equal to the minimumValidTime
-  if (new Date() >= minimumValidTime) {
-    this.accountValid = true;
-  }
-
-  const salt = await bcrypt.genSaltSync(10);
-  this.password = await bcrypt.hash(this.password, salt);
-
-  next();
 });
 
 userSchema.methods.isPasswordMatched = async function (enteredPassword) {

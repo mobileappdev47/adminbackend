@@ -96,6 +96,7 @@ const loginEmployeeCtrl = asyncHandler(async (req, res) => {
         lastname: findEmployee?.lastname,
         phone: findEmployee?.phone,
         email: findEmployee?.email,
+        image: findEmployee?.image,
         token: genrateToken(findEmployee?._id),
         statusCode: 200, // Custom status code for successful login
       });
@@ -144,38 +145,59 @@ const getEmployeeById = asyncHandler(async (req, res) => {
 
 // update employee
 const updateEmployee = asyncHandler(async (req, res) => {
-  const { userId, employeeId } = req.params;
+  const { employeeId } = req.params;
 
   try {
+    let updateFields = {
+      firstname: req.body.firstname,
+      lastname: req.body.lastname,
+      address: req.body.address,
+      email: req.body.email,
+      phone: req.body.phone,
+      password: req.body.password,
+    };
+
+    // Check if there is a new image URL in the request
+    if (req.body.image) {
+      updateFields.image = req.body.image;
+    }
+
     const updatedEmployee = await Employee.findByIdAndUpdate(
       employeeId,
-      {
-        $set: {
-          firstname: req.body.firstname,
-          lastname: req.body.lastname,
-          address: req.body.address,
-          email: req.body.email,
-          phone: req.body.phone,
-          password: req.body.password
-        }
-      },
+      { $set: updateFields },
       { new: true }
     );
 
     if (!updatedEmployee) {
-      return res.status(404).json({ success: false, message: 'Employee not found', statusCode: 404 });
+      return res
+        .status(404)
+        .json({ success: false, message: 'Employee not found', statusCode: 404 });
     }
 
-    const user = await User.findOne({ _id: userId, employees: employeeId });
-    if (!user) {
-      return res.status(404).json({ success: false, message: 'Employee does not belong to the user', statusCode: 404 });
-    }
+    // Extract only the updated fields from the updatedEmployee object
+    const updatedFields = Object.keys(updateFields).reduce((acc, key) => {
+      if (updatedEmployee[key] !== undefined) {
+        acc[key] = updatedEmployee[key];
+      }
+      return acc;
+    }, {});
 
-    res.status(200).json({ success: true, message: 'Employee details updated successfully', employee: updatedEmployee, statusCode: 200 });
+    res
+      .status(200)
+      .json({
+        success: true,
+        message: 'Employee details updated successfully',
+        updatedFields: updatedFields,
+        statusCode: 200,
+      });
   } catch (error) {
-    res.status(500).json({ success: false, error: error.message, statusCode: 500 });
+    res
+      .status(500)
+      .json({ success: false, error: error.message, statusCode: 500 });
   }
 });
+
+
 
 
 // update employee status
@@ -434,9 +456,6 @@ const getAllMachinesForEmployee = asyncHandler(async (req, res) => {
     return res.status(500).json({ success: false, error: error.message });
   }
 });
-
-
-
 
 
 // add new repair
