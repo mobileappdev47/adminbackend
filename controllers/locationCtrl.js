@@ -167,25 +167,10 @@ const getLocationbyId = asyncHandler(async (req, res) => {
   }
 })
 
-//   const getLocationsOfUser = asyncHandler(async (req, res) => {
-//     const { userId } = req.params; // Assuming userId is passed in the URL
-
-//     try {
-//       const user = await User.findById(userId).populate('location');
-//       if (!user) {
-//         return res.status(404).json({ message: 'User not found' });
-//       }
-
-//       res.json({ locations: user.location });
-//     } catch (error) {
-//       res.status(500).json({ error: error.message });
-//     }
-//   });
-
-
+// all locations of user
 const getAllLocationsForUser = asyncHandler(async (req, res) => {
   const { userId } = req.params;
-  const { searchLocation, page = 1, limit = 8 } = req.query;
+  const { searchLocation, page, limit } = req.query;
 
   try {
     const user = await User.findById(userId).populate({
@@ -222,19 +207,27 @@ const getAllLocationsForUser = asyncHandler(async (req, res) => {
       );
     }
 
-    const totalCount = locations.length;
-    const totalPages = Math.ceil(totalCount / limit);
-    const currentPage = parseInt(page);
+    let paginatedLocations;
+    
+    // Check if page and limit are provided
+    if (page && limit) {
+      const totalCount = locations.length;
+      const totalPages = Math.ceil(totalCount / limit);
+      const currentPage = parseInt(page);
 
-    const skip = (currentPage - 1) * limit;
+      const skip = (currentPage - 1) * limit;
 
-    const paginatedLocations = locations.slice(skip, skip + limit);
-
-    res.json({ locations: paginatedLocations, totalPages, currentPage });
+      paginatedLocations = locations.slice(skip, skip + limit);
+      res.json({ locations: paginatedLocations, totalPages, currentPage });
+    } else {
+      // If page and limit are not provided, return all locations
+      res.json({ locations, totalCount: locations.length });
+    }
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });
+
 
 
 

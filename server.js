@@ -26,7 +26,7 @@ app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: false }));
 app.use(cookieParser());
 
-// app.use((req, res, next) => res.on('finish', () => console.log(`[${res.statusCode}] ${req.method} ${req.originalUrl}`)) && next());
+app.use((req, res, next) => res.on('finish', () => console.log(`[${res.statusCode}] ${req.method} ${req.originalUrl}`)) && next());
 
 app.use('/api/user', authRouter);
 app.use('/api/location', locationRouter)

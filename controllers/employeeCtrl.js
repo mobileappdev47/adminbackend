@@ -4,7 +4,11 @@ const Employee = require("../models/employeModel");
 const asyncHandler = require("express-async-handler");
 const validateMongodbId = require("../utils/validateMongodbid");
 const User = require('../models/userModel')
-
+const Location = require('../models/locationModel')
+const Repair = require('../models/repairModel')
+const ServiceReport = require('../models/serviceReportModel')
+const CollectionReport = require('../models/collectionModel')
+const Machine = require('../models/machineModel')
 
 // add employee to admin
 const addEmployeeToAdmin = asyncHandler(async (req, res) => {
@@ -16,8 +20,15 @@ const addEmployeeToAdmin = asyncHandler(async (req, res) => {
       phone,
       email,
       address,
-      password
+      password,
+      image
     } = req.body;
+
+    // Check if the email already exists
+    const existingEmployee = await Employee.findOne({ email });
+    if (existingEmployee) {
+      return res.status(400).json({ success: false, message: 'Email is already exits!' });
+    }
 
     // Create the employee object and save it to the database
     const newEmployee = new Employee({
@@ -26,6 +37,7 @@ const addEmployeeToAdmin = asyncHandler(async (req, res) => {
       phone,
       email,
       address,
+      image,
       password
     });
 
@@ -57,7 +69,6 @@ const addEmployeeToAdmin = asyncHandler(async (req, res) => {
 });
 
 
-
 // login employee
 const loginEmployeeCtrl = asyncHandler(async (req, res) => {
   const { email, password } = req.body;
@@ -80,14 +91,12 @@ const loginEmployeeCtrl = asyncHandler(async (req, res) => {
       res.status(200).json({
         success: true,
         message: "Login successful",
-        data: {
-          _id: findEmployee?._id,
-          firstname: findEmployee?.firstname,
-          lastname: findEmployee?.lastname,
-          phone: findEmployee?.phone,
-          email: findEmployee?.email,
-          token: genrateToken(findEmployee?._id),
-        },
+        _id: findEmployee?._id,
+        firstname: findEmployee?.firstname,
+        lastname: findEmployee?.lastname,
+        phone: findEmployee?.phone,
+        email: findEmployee?.email,
+        token: genrateToken(findEmployee?._id),
         statusCode: 200, // Custom status code for successful login
       });
     } else {
@@ -105,6 +114,7 @@ const loginEmployeeCtrl = asyncHandler(async (req, res) => {
     });
   }
 });
+
 
 // get Employee by id
 const getEmployeeById = asyncHandler(async (req, res) => {
@@ -130,6 +140,7 @@ const getEmployeeById = asyncHandler(async (req, res) => {
     res.status(500).json({ success: false, error: error.message, statusCode: 500 });
   }
 });
+
 
 // update employee
 const updateEmployee = asyncHandler(async (req, res) => {
@@ -166,6 +177,7 @@ const updateEmployee = asyncHandler(async (req, res) => {
   }
 });
 
+
 // update employee status
 const updateStatusOfEmployee = asyncHandler(async (req, res) => {
   const { userId, employeeId } = req.params;
@@ -194,6 +206,7 @@ const updateStatusOfEmployee = asyncHandler(async (req, res) => {
     res.status(500).json({ success: false, error: error.message, statusCode: 500 });
   }
 });
+
 
 // delete a employee
 const deleteEmployee = asyncHandler(async (req, res) => {
@@ -325,8 +338,349 @@ const getAllUsersEmployees = asyncHandler(async (req, res) => {
 });
 
 
+// employee assign for locations
+const getLocationOfEmployee = asyncHandler(async (req, res) => {
+  const { employeeId } = req.params;
+  const { page, limit, searchLocation } = req.query;
+
+  try {
+    // Find the employee by ID
+    const employee = await Employee.findById(employeeId);
+    if (!employee) {
+      return res.status(404).json({ success: false, message: 'Employee not found' });
+    }
+
+    // Get all locations of the employee
+    let locationQuery = { employees: employeeId };
+
+    // If searchLocation is provided, add it to the query
+    if (searchLocation) {
+      locationQuery.locationname = { $regex: new RegExp(searchLocation, 'i') };
+    }
+
+    const locations = await Location.find(locationQuery);
+
+    if (!locations || locations.length === 0) {
+      return res.status(404).json({ success: false, message: 'No locations found for the employee' });
+    }
+
+    // If page and limit are provided, paginate the result
+    if (page && limit) {
+      const totalCount = locations.length;
+      const totalPages = Math.ceil(totalCount / limit);
+      const currentPage = parseInt(page);
+
+      const skip = (currentPage - 1) * limit;
+      const paginatedLocations = locations.slice(skip, skip + limit);
+
+      return res.json({ success: true, locations: paginatedLocations, totalPages, currentPage });
+    }
+
+    // If page and limit are not provided, return all locations without pagination
+    return res.json({ success: true, locations });
+  } catch (error) {
+    return res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+
+// employee assign for machine
+const getAllMachinesForEmployee = asyncHandler(async (req, res) => {
+  const { employeeId } = req.params;
+  const { page, limit, search } = req.query;
+  try {
+    // Find all locations where the employee is assigned and populate all fields
+    const locations = await Location.find({ employees: employeeId }).populate('machines').exec();
+
+    // Find all machines where the employee is assigned and populate all fields
+    let machines = await Machine.find({ employees: employeeId });
+
+    // If search parameter is provided, filter machines based on machineNumber or serialNumber
+    if (search) {
+      const searchRegex = new RegExp(search, 'i');
+      machines = machines.filter(machine => (
+        machine.machineNumber.match(searchRegex) || machine.serialNumber.match(searchRegex)
+      ));
+    }
+
+    // Populate all fields of the machines
+    machines = await Machine.populate(machines, { path: 'employees', model: 'Employee' });
+
+    // Apply pagination logic if needed for locations
+    const paginatedLocationsResult = (page && limit)
+      ? locations.slice((page - 1) * limit, page * limit)
+      : locations;
+
+    // Apply pagination logic if needed for machines
+    const paginatedMachinesResult = (page && limit)
+      ? machines.slice((page - 1) * limit, page * limit)
+      : machines;
+
+    // Calculate total pages for locations
+    const totalLocationPages = (limit) ? Math.ceil(locations.length / limit) : 1;
+    // Calculate total pages for machines
+    const totalMachinePages = (limit) ? Math.ceil(machines.length / limit) : 1;
+
+    return res.json({
+      success: true,
+      locations: paginatedLocationsResult,
+      machines: paginatedMachinesResult,
+      currentPage: parseInt(page) || 1,
+      totalLocationPages,
+      totalMachinePages,
+    });
+
+  } catch (error) {
+    return res.status(500).json({ success: false, error: error.message });
+  }
+});
 
 
 
 
-module.exports = { addEmployeeToAdmin, loginEmployeeCtrl, getEmployeeById, updateEmployee, deleteEmployee, getAllEmployeesForUser, updateStatusOfEmployee, getAllUsersEmployees }
+
+// add new repair
+const addNewRepair = asyncHandler(async (req, res) => {
+  const { employeeId } = req.params;
+  const {
+    machineNumber,
+    serialNumber,
+    auditNumber,
+    date,
+    time,
+    reporterName,
+    issue,
+    image,
+  } = req.body;
+
+  try {
+    // Find the employee by ID
+    const employee = await Employee.findById(employeeId);
+    if (!employee) {
+      return res.status(404).json({ success: false, message: 'Employee not found' });
+    }
+    // Create a new repair report
+    const newRepairs = new Repair({
+      machineNumber,
+      serialNumber,
+      auditNumber,
+      date,
+      time,
+      reporterName,
+      issue,
+      image,
+    });
+    // Save the repair report
+    await newRepairs.save();
+    // Update the employee with the new repair report
+    employee.newRepairs.push(newRepairs._id);
+    await employee.save();
+
+    return res.status(201).json({
+      success: true,
+      message: 'New repair report created for the employee',
+      newRepairs,
+    });
+  } catch (error) {
+    console.error('Error creating new repair report:', error);
+    return res.status(500).json({ success: false, message: 'Internal Server Error' });
+  }
+});
+
+// get repairs report of employee
+const getAllRepairsReport = asyncHandler(async (req, res) => {
+  const { employeeId } = req.params;
+
+  try {
+    // Find the employee by ID and populate the 'newRepairs' field
+    const employee = await Employee.findById(employeeId).populate('newRepairs').exec();
+
+    if (!employee) {
+      return res.status(404).json({ success: false, message: 'Employee not found' });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: 'Repair reports retrieved successfully',
+      repairReports: employee.newRepairs
+    });
+  } catch (error) {
+    console.error('Error retrieving repair reports:', error);
+    return res.status(500).json({ success: false, message: 'Internal Server Error' });
+  }
+});
+
+// add service report 
+const addServiceReport = asyncHandler(async (req, res) => {
+  const { employeeId } = req.params;
+  const {
+    machineNumber,
+    serialNumber,
+    auditNumber,
+    date,
+    time,
+    employeeName,
+    serviceRequested,
+    image,
+  } = req.body;
+
+  try {
+    // Find the employee by ID
+    const employee = await Employee.findById(employeeId);
+    if (!employee) {
+      return res.status(404).json({ success: false, message: 'Employee not found' });
+    }
+
+    // Create a new service report
+    const newServiceReports = new ServiceReport({
+      machineNumber,
+      serialNumber,
+      auditNumber,
+      date,
+      time,
+      employeeName,
+      serviceRequested,
+      image,
+    });
+
+    // Save the service report
+    await newServiceReports.save();
+
+    // Update the employee with the new service report
+    employee.newServiceReports.push(newServiceReports._id);
+    await employee.save();
+
+    return res.status(201).json({
+      success: true,
+      message: 'New service report created for the employee',
+      employee,
+      newServiceReports,
+    });
+  } catch (error) {
+    console.error('Error creating new service report:', error);
+    return res.status(500).json({ success: false, message: 'Internal Server Error' });
+  }
+});
+
+
+// get all service report 
+const getAllServiceReports = asyncHandler(async (req, res) => {
+  const { employeeId } = req.params;
+  const { page, limit, searchMachineNumber, searchSerialNumber } = req.query;
+
+  try {
+    // Find the employee by ID and populate the 'newServiceReports' field along with 'machine'
+    const employee = await Employee.findById(employeeId).populate({
+      path: 'newServiceReports',
+    }).exec();
+
+    if (!employee) {
+      return res.status(404).json({ success: false, message: 'Employee not found' });
+    }
+
+    let serviceReports = employee.newServiceReports;
+
+    // If searchMachineNumber is provided, filter by machine number
+    if (searchMachineNumber) {
+      serviceReports = serviceReports.filter(report =>
+        report.machineNumber.toLowerCase().includes(searchMachineNumber.toLowerCase())
+      );
+    }
+
+    // If searchSerialNumber is provided, filter by serial number
+    if (searchSerialNumber) {
+      serviceReports = serviceReports.filter(report =>
+        report.serialNumber.toLowerCase().includes(searchSerialNumber.toLowerCase())
+      );
+    }
+
+    // If page and limit are provided, paginate the result
+    if (page && limit) {
+      const totalCount = serviceReports.length;
+      const totalPages = Math.ceil(totalCount / limit);
+      const currentPage = parseInt(page);
+
+      const skip = (currentPage - 1) * limit;
+
+      serviceReports = serviceReports.slice(skip, skip + limit);
+
+      return res.status(200).json({
+        success: true,
+        message: 'Service reports retrieved successfully',
+        serviceReports,
+        totalPages,
+        currentPage,
+      });
+    }
+
+    // If page and limit are not provided, return all service reports without pagination
+    return res.status(200).json({
+      success: true,
+      message: 'Service reports retrieved successfully',
+      serviceReports,
+    });
+  } catch (error) {
+    console.error('Error retrieving service reports:', error);
+    return res.status(500).json({ success: false, message: 'Internal Server Error' });
+  }
+});
+
+
+// add collection report
+const addCollectionReport = asyncHandler(async (req, res) => {
+  const { employeeId } = req.params;
+  const {
+    location,
+    machineNumber,
+    serialNumber,
+    auditNumber,
+    inNumbers: { previous: inPrevious, current: inCurrent },
+    outNumbers: { previous: outPrevious, current: outCurrent },
+    total,
+    image,
+  } = req.body;
+
+  try {
+    // Find the employee by ID
+    const employee = await Employee.findById(employeeId);
+    if (!employee) {
+      return res.status(404).json({ success: false, message: 'Employee not found' });
+    }
+
+    // Create a new collection report
+    const newCollectionReport = new CollectionReport({
+      location,
+      machineNumber,
+      serialNumber,
+      auditNumber,
+      inNumbers: { previous: inPrevious, current: inCurrent },
+      outNumbers: { previous: outPrevious, current: outCurrent },
+      total,
+      image,
+    });
+
+    // Save the collection report
+    await newCollectionReport.save();
+
+    // Update the employee with the new collection report
+    employee.newCollectionReports.push(newCollectionReport._id);
+    await employee.save();
+
+    return res.status(201).json({
+      success: true,
+      message: 'New collection report created for the employee',
+      data: { employee, newCollectionReport },
+    });
+  } catch (error) {
+    console.error('Error creating new collection report:', error);
+    return res.status(500).json({ success: false, message: 'Internal Server Error' });
+  }
+})
+
+
+
+module.exports = {
+  addEmployeeToAdmin, loginEmployeeCtrl, getEmployeeById, updateEmployee,
+  deleteEmployee, getAllEmployeesForUser, updateStatusOfEmployee, getAllUsersEmployees, getLocationOfEmployee,getAllMachinesForEmployee,
+  addNewRepair, getAllRepairsReport,getAllServiceReports, addServiceReport, addCollectionReport
+}

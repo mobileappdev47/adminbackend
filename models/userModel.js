@@ -38,9 +38,13 @@ var userSchema = new mongoose.Schema(
       enum: ['paid', 'unpaid'], // Example statuses, modify as needed
       default: 'unpaid', // Default status
     },
-    blocked: {
+    accountValid: {
       type: Boolean,
       default: false, // Admin is not blocked by default
+    },
+    freeTrialDuration: {
+      type: Number, // The duration for the trial period in milliseconds
+      default: 1 * 60 * 1000, // Default: 1 minute in milliseconds
     },
     location: [{
       type: mongoose.Schema.Types.ObjectId,
@@ -55,7 +59,11 @@ var userSchema = new mongoose.Schema(
     },
     restrictionDate: {
       type: Date
-    }
+    },
+    createdAt: {
+      type: Date,
+      default: Date.now,
+    },
   },
   {
     timestamps: true,
@@ -64,14 +72,30 @@ var userSchema = new mongoose.Schema(
 
 userSchema.pre("save", async function (next) {
   if (!this.isModified("password")) {
-    next();
+    return next();
   }
+
+  // Set accountValid to false initially
+  this.accountValid = false;
+
+  // Calculate the minimum time for accountValid to be true
+  const minimumValidTime = new Date(this.createdAt.getTime() + this.freeTrialDuration);
+
+  // Check if the current time is greater than or equal to the minimumValidTime
+  if (new Date() >= minimumValidTime) {
+    this.accountValid = true;
+  }
+
   const salt = await bcrypt.genSaltSync(10);
   this.password = await bcrypt.hash(this.password, salt);
+
+  next();
 });
+
 userSchema.methods.isPasswordMatched = async function (enteredPassword) {
   return await bcrypt.compare(enteredPassword, this.password);
 };
+
 userSchema.methods.createPasswordResetToken = async function () {
   const resettoken = crypto.randomBytes(32).toString("hex");
   this.passwordResetToken = crypto
@@ -81,7 +105,6 @@ userSchema.methods.createPasswordResetToken = async function () {
   this.passwordResetExpires = Date.now() + 30 * 60 * 1000;
   return resettoken;
 };
-
 
 //Export the model
 module.exports = mongoose.model("User", userSchema);

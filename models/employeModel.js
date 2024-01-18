@@ -25,7 +25,10 @@ var employeeSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
-    activeEmployeeStatus : {
+    image: {
+      type: String,
+    },
+    activeEmployeeStatus: {
       type: String,
       enum: ['Active', 'In Active'],
       default: 'Active',
@@ -34,6 +37,18 @@ var employeeSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
+    newRepairs: [{
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Repair',
+    }],
+    newServiceReports: [{
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'ServiceReport',
+    }],
+    newCollectionReports: [{
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'CollectionReport',
+    }],
     refreshToken: {
       type: String,
     }

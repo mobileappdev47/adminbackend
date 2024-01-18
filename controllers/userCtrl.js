@@ -387,6 +387,12 @@ const addMachineToUserLocation = asyncHandler(async (req, res) => {
       return res.status(404).json({ success: false, message: 'Location not found' });
     }
 
+    // Check if serial number already exists
+    const existingMachine = await Machine.findOne({ serialNumber });
+    if (existingMachine) {
+      return res.status(400).json({ success: false, message: 'Serial number already added' });
+    }
+
     const newMachine = new Machine({ machineNumber, serialNumber });
     newMachine.employees = employeeIds;
 
@@ -613,7 +619,7 @@ const getMachinesByLocationId = asyncHandler(async (req, res) => {
 
 
 
-// get location by id
+// get machine by id
 const getMachinebyId = asyncHandler(async (req, res) => {
   try {
     const { machineId, userId } = req.params;
