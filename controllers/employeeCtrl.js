@@ -9,6 +9,7 @@ const Repair = require('../models/repairModel')
 const ServiceReport = require('../models/serviceReportModel')
 const CollectionReport = require('../models/collectionModel')
 const Machine = require('../models/machineModel')
+const mongoose = require('mongoose')
 
 // add employee to admin
 const addEmployeeToAdmin = asyncHandler(async (req, res) => {
@@ -435,46 +436,54 @@ const getLocationOfEmployee = asyncHandler(async (req, res) => {
 const getAllMachinesForEmployee = asyncHandler(async (req, res) => {
   const { employeeId } = req.params;
   const { page, limit, search } = req.query;
+
   try {
-    // Find all locations where the employee is assigned and populate all fields
-    const locations = await Location.find({ employees: employeeId }).populate('machines').exec();
+    // Find all locations where the employee is assigned and populate machines with filtered employee details
+    const locations = await Location.find({ employees: employeeId })
+      .populate({
+        path: 'machines',
+        populate: [
+          {
+            path: 'employees',
+            match: { _id: employeeId },
+            model: 'Employee',
+            select: 'firstname lastname _id',
+          },
+        ],
+      })
+      .exec();
 
-    // Find all machines where the employee is assigned and populate all fields
-    let machines = await Machine.find({ employees: employeeId });
-
-    // If search parameter is provided, filter machines based on machineNumber or serialNumber
-    if (search) {
-      const searchRegex = new RegExp(search, 'i');
-      machines = machines.filter(machine => (
-        machine.machineNumber.match(searchRegex) || machine.serialNumber.match(searchRegex)
-      ));
-    }
-
-    // Populate all fields of the machines
-    machines = await Machine.populate(machines, { path: 'employees', model: 'Employee' });
+    // Filter locations based on the search term
+    const filteredLocations = locations
+      .filter(location => {
+        const locationname = location.locationname.toLowerCase();
+        const searchLower = (search || '').toLowerCase();
+        return locationname.includes(searchLower) ||
+          location.machines.some(machine => {
+            const machineNumber = machine.machineNumber.toLowerCase();
+            const serialNumber = machine.serialNumber.toLowerCase();
+            return machineNumber.includes(searchLower) || serialNumber.includes(searchLower);
+          });
+      })
+      .map(location => {
+        // Filter machines to include only those with at least one employee matching the condition
+        const filteredMachines = location.machines.filter(machine => machine.employees.length > 0);
+        return { ...location.toObject(), machines: filteredMachines };
+      });
 
     // Apply pagination logic if needed for locations
-    const paginatedLocationsResult = (page && limit)
-      ? locations.slice((page - 1) * limit, page * limit)
-      : locations;
-
-    // Apply pagination logic if needed for machines
-    const paginatedMachinesResult = (page && limit)
-      ? machines.slice((page - 1) * limit, page * limit)
-      : machines;
+    const paginatedLocations = (page && limit)
+      ? filteredLocations.slice((page - 1) * limit, page * limit)
+      : filteredLocations;
 
     // Calculate total pages for locations
-    const totalLocationPages = (limit) ? Math.ceil(locations.length / limit) : 1;
-    // Calculate total pages for machines
-    const totalMachinePages = (limit) ? Math.ceil(machines.length / limit) : 1;
+    const totalLocationPages = (limit) ? Math.ceil(filteredLocations.length / limit) : 1;
 
     return res.json({
       success: true,
-      locations: paginatedLocationsResult,
-      machines: paginatedMachinesResult,
+      locations: paginatedLocations,
       currentPage: parseInt(page) || 1,
       totalLocationPages,
-      totalMachinePages,
     });
 
   } catch (error) {
@@ -495,16 +504,33 @@ const addNewRepair = asyncHandler(async (req, res) => {
     reporterName,
     issue,
     image,
+    location
   } = req.body;
 
   try {
+    // Validate if location is a valid ObjectId
+    if (location && !mongoose.Types.ObjectId.isValid(location)) {
+      return res.status(400).json({ success: false, message: 'Invalid location ID' });
+    }
+
     // Find the employee by ID
     const employee = await Employee.findById(employeeId);
     if (!employee) {
       return res.status(404).json({ success: false, message: 'Employee not found' });
     }
-    // Create a new repair report
+
+    // If location is provided, check if it exists
+    let locationDocument;
+    if (location) {
+      locationDocument = await Location.findById(location);
+      if (!locationDocument) {
+        return res.status(404).json({ success: false, message: 'Location not found' });
+      }
+    }
+
+    // Create a new repair report with the location ID
     const newRepairs = new Repair({
+      location: locationDocument ? locationDocument._id : undefined,
       machineNumber,
       serialNumber,
       auditNumber,
@@ -514,8 +540,10 @@ const addNewRepair = asyncHandler(async (req, res) => {
       issue,
       image,
     });
+
     // Save the repair report
     await newRepairs.save();
+
     // Update the employee with the new repair report
     employee.newRepairs.push(newRepairs._id);
     await employee.save();
@@ -531,22 +559,65 @@ const addNewRepair = asyncHandler(async (req, res) => {
   }
 });
 
+
 // get repairs report of employee
 const getAllRepairsReport = asyncHandler(async (req, res) => {
   const { employeeId } = req.params;
+  const { page, limit, searchLocation } = req.query;
 
   try {
     // Find the employee by ID and populate the 'newRepairs' field
-    const employee = await Employee.findById(employeeId).populate('newRepairs').exec();
+    const employee = await Employee.findById(employeeId).populate({
+      path: 'newRepairs',
+      populate: {
+        path: 'location',
+        model: 'Location',
+        select: 'locationname _id',
+      },
+    }).exec();
 
     if (!employee) {
       return res.status(404).json({ success: false, message: 'Employee not found' });
     }
 
+    // Map the repair reports and include the location field
+    const repairReports = employee.newRepairs.map(report => ({
+      ...report.toObject({ getters: true }),
+      location: report.location ? report.location.locationname : null,
+    }));
+
+    // Apply search filter if searchLocation is provided
+    let filteredRepairReports = repairReports;
+    if (searchLocation) {
+      const searchRegex = new RegExp(searchLocation, 'i');
+      filteredRepairReports = repairReports.filter(report =>
+        report.location && report.location.match(searchRegex)
+      );
+    }
+
+    // Initialize total pages
+    let totalPages;
+
+    // Apply pagination logic if needed
+    let paginatedRepairReports;
+    if (page && limit) {
+      const totalCount = filteredRepairReports.length;
+      totalPages = Math.ceil(totalCount / limit);
+      const currentPage = parseInt(page);
+
+      const skip = (currentPage - 1) * limit;
+      paginatedRepairReports = filteredRepairReports.slice(skip, skip + limit);
+    } else {
+      // If page and limit are not provided, return all repair reports
+      paginatedRepairReports = filteredRepairReports;
+    }
+
     return res.status(200).json({
       success: true,
       message: 'Repair reports retrieved successfully',
-      repairReports: employee.newRepairs
+      repairReports: paginatedRepairReports,
+      totalPages,
+      currentPage: parseInt(page) || 1,
     });
   } catch (error) {
     console.error('Error retrieving repair reports:', error);
@@ -667,9 +738,8 @@ const getAllServiceReports = asyncHandler(async (req, res) => {
 
 // add collection report
 const addCollectionReport = asyncHandler(async (req, res) => {
-  const { employeeId } = req.params;
+  const { employeeId, locationId } = req.params; // Extract locationId from params
   const {
-    location,
     machineNumber,
     serialNumber,
     auditNumber,
@@ -688,7 +758,7 @@ const addCollectionReport = asyncHandler(async (req, res) => {
 
     // Create a new collection report
     const newCollectionReport = new CollectionReport({
-      location,
+      location: locationId, // set the location ID
       machineNumber,
       serialNumber,
       auditNumber,
@@ -705,16 +775,30 @@ const addCollectionReport = asyncHandler(async (req, res) => {
     employee.newCollectionReports.push(newCollectionReport._id);
     await employee.save();
 
+    // Update the statusOfPayment in the associated location to true
+    const locationToUpdate = await Location.findOneAndUpdate(
+      { _id: locationId }, // use the location ID from params
+      { $set: { statusOfPayment: true } },
+      { new: true }
+    );
+
+    if (!locationToUpdate) {
+      console.error('Location not found for the given ID:', locationId);
+      return res.status(404).json({ success: false, message: 'Location not found' });
+    }
+
     return res.status(201).json({
       success: true,
       message: 'New collection report created for the employee',
-      data: { employee, newCollectionReport },
+      data: { employee, newCollectionReport, updatedLocation: locationToUpdate },
     });
   } catch (error) {
     console.error('Error creating new collection report:', error);
     return res.status(500).json({ success: false, message: 'Internal Server Error' });
   }
-})
+});
+
+
 
 
 

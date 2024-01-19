@@ -21,10 +21,12 @@ const collectionReportSchema = new mongoose.Schema({
   inNumbers: {
     previous: {
       type: Number,
+      default: '$0',
       required: true,
     },
     current: {
       type: Number,
+      default: '$0',
       required: true,
     },
   },

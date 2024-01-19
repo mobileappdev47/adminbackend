@@ -16,7 +16,7 @@ const machineSchema = new mongoose.Schema(
             type: String,
             default: "$0"
         },
-        defaultNumber: {
+        currentNumber: {
             type: String,
             default: "$0"
         },

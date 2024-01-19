@@ -38,7 +38,7 @@ router.get('/service/:employeeId/report', employeeMiddleware, getAllServiceRepor
 router.post('/servicereport/:employeeId', employeeMiddleware, addServiceReport)
 
 
-router.post('/collection/:employeeId', employeeMiddleware, addCollectionReport)
+router.post('/collection/:employeeId/:locationId', employeeMiddleware, addCollectionReport)
 
 
 module.exports = router;    

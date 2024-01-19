@@ -25,6 +25,10 @@ const repairSchema = new mongoose.Schema({
     type: String,
     required: true,
   },
+  location: {
+    type: String,
+    required: true
+  },
   statusOfRepair: {
     type: String,
     enum: ['Done', 'Pending', 'Running'],

@@ -30,6 +30,10 @@ const locationSchema = new mongoose.Schema(
             type: Number,
             default: 0
         },
+        statusOfPayment:{
+            type: Boolean,
+            default: false
+        },
         activeStatus: {
             type: String,
             enum: ['Active', 'Pending', 'Closed'], // Define the allowed statuses
