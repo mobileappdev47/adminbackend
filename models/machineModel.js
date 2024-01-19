@@ -12,6 +12,14 @@ const machineSchema = new mongoose.Schema(
             // required: true,
             unique: true,
         },
+        initialNumber: {
+            type: String,
+            default: "$0"
+        },
+        defaultNumber: {
+            type: String,
+            default: "$0"
+        },
         activeMachineStatus: {
             type: String,
             enum: ['Active', 'In Service'], 

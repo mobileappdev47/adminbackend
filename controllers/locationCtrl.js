@@ -26,6 +26,10 @@ const addLocationToUser = asyncHandler(async (req, res) => {
       return res.status(404).json({ success: false, message: 'User not found' });
     }
 
+    if (!user.location) {
+      user.location = []; // Initialize the locations array if it's undefined
+    }
+
     if (!user.employees || user.employees.length === 0) {
       return res.status(404).json({ success: false, message: 'User has no employees' });
     }
@@ -36,7 +40,13 @@ const addLocationToUser = asyncHandler(async (req, res) => {
       return res.status(404).json({ success: false, message: 'One or more employees not found' });
     }
 
-    const newLocation = new Location({ locationname, address, percentage });
+    const newLocation = new Location({
+      admin: _id, // Set the admin field to the user's ID
+      locationname,
+      address,
+      percentage,
+      employees: employeesToAdd,
+    });
 
     // Add the filtered employees to the new location's employees array
     newLocation.employees.push(...employeesToAdd);
@@ -59,6 +69,7 @@ const addLocationToUser = asyncHandler(async (req, res) => {
     return res.status(500).json({ success: false, error: error.message });
   }
 });
+
 
 
 
@@ -122,24 +133,31 @@ const deleteLocation = asyncHandler(async (req, res) => {
   const { userId, locationId } = req.params;
 
   try {
+    // Find the user by ID
     const user = await User.findById(userId);
     if (!user) {
       return res.status(404).json({ success: false, message: 'User not found' });
     }
 
-    const isValidLocationId = user.location.some(id => id.toString() === locationId);
-    if (!isValidLocationId) {
+    // Check if the location exists for this user
+    const locationIndex = user.location.findIndex(id => id.toString() === locationId);
+    if (locationIndex === -1) {
       return res.status(404).json({ success: false, message: 'Location not found for this user' });
     }
 
-    user.location = user.location.filter(id => id.toString() !== locationId);
+    // Remove the location ID from the user's locations array
+    user.location.splice(locationIndex, 1);
     await user.save();
+
+    // Delete the location from the Location model
+    await Location.findByIdAndDelete(locationId);
 
     return res.json({ success: true, message: 'Location deleted successfully', user });
   } catch (error) {
     return res.status(500).json({ success: false, error: error.message });
   }
 });
+
 
 // get location by id
 const getLocationbyId = asyncHandler(async (req, res) => {
@@ -175,19 +193,24 @@ const getAllLocationsForUser = asyncHandler(async (req, res) => {
   try {
     const user = await User.findById(userId).populate({
       path: 'location',
-      select: 'locationname address percentage machines createdAt updatedAt employees',
-      populate: {
-        path: 'machines',
-        model: 'Machine',
-        select: '_id'
-      }
-    }).populate({
-      path: 'location',
-      populate: {
-        path: 'employees',
-        model: 'Employee',
-        select: 'firstname lastname'
-      }
+      select: 'locationname address percentage machines createdAt updatedAt employees admin activeStatus', // Include admin field
+      populate: [
+        {
+          path: 'machines',
+          model: 'Machine',
+          select: '_id',
+        },
+        {
+          path: 'employees',
+          model: 'Employee',
+          select: 'firstname lastname',
+        },
+        {
+          path: 'admin',
+          model: 'User', // Assuming your user model is named 'User'
+          select: 'firstname lastname _id',
+        },
+      ],
     });
 
     if (!user) {

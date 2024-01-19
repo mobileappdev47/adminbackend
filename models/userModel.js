@@ -38,13 +38,12 @@ var userSchema = new mongoose.Schema(
       enum: ['paid', 'unpaid'], // Example statuses, modify as needed
       default: 'unpaid', // Default status
     },
-    accountValid: {
+    accountStatus: {
       type: Boolean,
-      default: false, // Admin is not blocked by default
+      default: false,
     },
-    freeTrialDuration: {
-      type: Number, // The duration for the trial period in milliseconds
-      default: 1 * 60 * 1000, // Default: 1 minute in milliseconds
+     accountActivationDate: {
+      type: Date,
     },
     location: [{
       type: mongoose.Schema.Types.ObjectId,
@@ -69,6 +68,33 @@ var userSchema = new mongoose.Schema(
     timestamps: true,
   }
 );
+
+
+userSchema.pre("save", async function (next) {
+  if (this.isNew) {
+    // Set the restrictionDate to 2 minutes from now
+    this.accountActivationDate = Date.now() + 1 * 24 * 60 * 60 * 1000;
+
+    // Use setTimeout to set accountStatus to true after 2 minutes
+    setTimeout(() => {
+      this.accountStatus = true;
+      this.save(); // Save the document to update the accountStatus
+    }, 1 * 24 * 60 * 60 * 1000);
+  }
+
+   if (this.isModified("password") || this.isNew) {
+    try {
+      const salt = await bcrypt.genSalt(10);
+      const hashedPassword = await bcrypt.hash(this.password, salt);
+      this.password = hashedPassword;
+    } catch (error) {
+      return next(error);
+    }
+  }
+
+  return next();
+  
+});
 
 userSchema.pre("save", async function (next) {
   if (!this.isModified("password")) {

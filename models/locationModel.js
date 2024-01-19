@@ -2,6 +2,10 @@ const mongoose = require("mongoose"); // Erase if already required
 
 const locationSchema = new mongoose.Schema(
     {
+        admin: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "User", // Assuming you have a User model
+        },
         locationname: {
             type: String,
             required: true,

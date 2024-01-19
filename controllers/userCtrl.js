@@ -318,6 +318,33 @@ const getAllUsers = asyncHandler(async (req, res) => {
 });
 
 
+const unableAdmin = asyncHandler(async (req, res) => {
+  const { userId } = req.params;
+
+  try {
+    const user = await User.findById(userId);
+
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    // Toggle the accountStatus field
+    user.accountStatus = !user.accountStatus;
+
+    // Save the updated user document
+    await user.save();
+
+    // Respond based on the new accountStatus
+    const message = user.accountStatus
+      ? 'User blocked successfully'
+      : 'User unblocked successfully';
+
+    res.status(200).json({ success: true, message });
+  } catch (error) {
+    console.error('Block user error:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+});
 
 //blockes admin
 const blockedAdmin = asyncHandler(async (req, res) => {
@@ -647,5 +674,5 @@ const getMachinebyId = asyncHandler(async (req, res) => {
 module.exports = {createSuperAdmin,
   createUser, loginUserCtrl, loginAdmin, addRestrictionDate, getAllUsers, getaUser, deleteaUser,
   updatedUser, updateStatusUser, addMachineToUserLocation, updateMachineInUserLocation, updateMachineStatus,
-  deleteMachineFromUser, getMachinesOfUser, getMachinebyId, getMachinesByLocationId, blockedAdmin, unblockedAdmin
+  deleteMachineFromUser, getMachinesOfUser, getMachinebyId, getMachinesByLocationId,unableAdmin, blockedAdmin, unblockedAdmin
 }

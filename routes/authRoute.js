@@ -19,6 +19,7 @@ const {
     unblockedAdmin,
     updateMachineStatus,
     createSuperAdmin,
+    unableAdmin,
 } = require('../controllers/userCtrl');
 const { authMiddleware, isAdmin } = require('../middlerwares/authMiddleware');
 const router = express.Router();
@@ -40,6 +41,7 @@ router.get('/:id', authMiddleware, getaUser);
 router.delete('/:id', authMiddleware, isAdmin, deleteaUser);
 
 router.put('/edit-user/:id', authMiddleware, isAdmin, updatedUser);
+router.put('/unble-disable/:userId', authMiddleware, isAdmin, unableAdmin)
 router.put('/block/:userId', authMiddleware, isAdmin, blockedAdmin);
 router.put('/unblock/:userId', authMiddleware, isAdmin, unblockedAdmin);
 

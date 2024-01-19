@@ -28,6 +28,7 @@ var employeeSchema = new mongoose.Schema(
     image: {
       type: String,
     },
+    addedByAdmin: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
     activeEmployeeStatus: {
       type: String,
       enum: ['Active', 'In Active'],

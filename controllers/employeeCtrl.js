@@ -372,7 +372,7 @@ const getLocationOfEmployee = asyncHandler(async (req, res) => {
       return res.status(404).json({ success: false, message: 'Employee not found' });
     }
 
-    // Get all locations of the employee
+    // Get all locations of the employee with admin details
     let locationQuery = { employees: employeeId };
 
     // If searchLocation is provided, add it to the query
@@ -380,30 +380,55 @@ const getLocationOfEmployee = asyncHandler(async (req, res) => {
       locationQuery.locationname = { $regex: new RegExp(searchLocation, 'i') };
     }
 
-    const locations = await Location.find(locationQuery);
+    const locations = await Location.find(locationQuery)
+      .populate({
+        path: 'admin',
+        model: 'User',
+        select: 'firstname lastname _id',
+      })
+      .populate({
+        path: 'machines',
+        model: 'Machine',
+        select: '_id',
+      })
+      .populate({
+        path: 'employees',
+        model: 'Employee',
+        select: 'firstname lastname',
+      });
 
     if (!locations || locations.length === 0) {
       return res.status(404).json({ success: false, message: 'No locations found for the employee' });
     }
 
+    // Update the numofmachines for each location
+    const updatedLocations = await Promise.all(locations.map(async location => {
+      const numofmachines = location.machines.length;
+      location.numofmachines = numofmachines;
+      await location.save();
+      return location.toObject();
+    }));
+
     // If page and limit are provided, paginate the result
     if (page && limit) {
-      const totalCount = locations.length;
+      const totalCount = updatedLocations.length;
       const totalPages = Math.ceil(totalCount / limit);
       const currentPage = parseInt(page);
 
       const skip = (currentPage - 1) * limit;
-      const paginatedLocations = locations.slice(skip, skip + limit);
+      const paginatedLocations = updatedLocations.slice(skip, skip + limit);
 
       return res.json({ success: true, locations: paginatedLocations, totalPages, currentPage });
     }
 
     // If page and limit are not provided, return all locations without pagination
-    return res.json({ success: true, locations });
+    return res.json({ success: true, locations: updatedLocations });
   } catch (error) {
     return res.status(500).json({ success: false, error: error.message });
   }
 });
+
+
 
 
 // employee assign for machine
@@ -585,7 +610,7 @@ const addServiceReport = asyncHandler(async (req, res) => {
 // get all service report 
 const getAllServiceReports = asyncHandler(async (req, res) => {
   const { employeeId } = req.params;
-  const { page, limit, searchMachineNumber, searchSerialNumber } = req.query;
+  const { page, limit, searchQuery } = req.query;
 
   try {
     // Find the employee by ID and populate the 'newServiceReports' field along with 'machine'
@@ -599,17 +624,11 @@ const getAllServiceReports = asyncHandler(async (req, res) => {
 
     let serviceReports = employee.newServiceReports;
 
-    // If searchMachineNumber is provided, filter by machine number
-    if (searchMachineNumber) {
+    // If searchQuery is provided, filter by either machine number or serial number
+    if (searchQuery) {
       serviceReports = serviceReports.filter(report =>
-        report.machineNumber.toLowerCase().includes(searchMachineNumber.toLowerCase())
-      );
-    }
-
-    // If searchSerialNumber is provided, filter by serial number
-    if (searchSerialNumber) {
-      serviceReports = serviceReports.filter(report =>
-        report.serialNumber.toLowerCase().includes(searchSerialNumber.toLowerCase())
+        report.machineNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        report.serialNumber.toLowerCase().includes(searchQuery.toLowerCase())
       );
     }
 
@@ -643,6 +662,7 @@ const getAllServiceReports = asyncHandler(async (req, res) => {
     return res.status(500).json({ success: false, message: 'Internal Server Error' });
   }
 });
+
 
 
 // add collection report
@@ -700,6 +720,6 @@ const addCollectionReport = asyncHandler(async (req, res) => {
 
 module.exports = {
   addEmployeeToAdmin, loginEmployeeCtrl, getEmployeeById, updateEmployee,
-  deleteEmployee, getAllEmployeesForUser, updateStatusOfEmployee, getAllUsersEmployees, getLocationOfEmployee,getAllMachinesForEmployee,
-  addNewRepair, getAllRepairsReport,getAllServiceReports, addServiceReport, addCollectionReport
+  deleteEmployee, getAllEmployeesForUser, updateStatusOfEmployee, getAllUsersEmployees, getLocationOfEmployee, getAllMachinesForEmployee,
+  addNewRepair, getAllRepairsReport, getAllServiceReports, addServiceReport, addCollectionReport
 }
