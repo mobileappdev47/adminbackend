@@ -9,6 +9,7 @@ const Machine = require('../models/machineModel')
 const jwt = require("jsonwebtoken");
 const crypto = require("crypto");
 const mongoose = require('mongoose')
+const Repair = require('../models/repairModel')
 
 // create admin and superadmin
 
@@ -670,9 +671,65 @@ const getMachinebyId = asyncHandler(async (req, res) => {
   }
 })
 
+// add repair to admin
+const addRepairToAdmin = asyncHandler(async (req, res) => {
+  const { userId } = req.params;
 
-module.exports = {createSuperAdmin,
+  try {
+    // Create a new repair
+    const newRepair = new Repair(req.body);
+
+    // Save the new repair
+    await newRepair.save();
+
+    // Get the user by ID
+    const user = await User.findById(userId);
+
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    // Add the new repair's ID to the user's repairs array
+    user.repairs.push(newRepair._id);
+
+    // Save the updated user
+    await user.save();
+
+    return res.status(201).json({ success: true, message: "Repair added to user successfully", user });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ success: false, error: "Internal server error" });
+  }
+});
+
+
+// get all repairs
+const getAllRepairs = asyncHandler(async(req, res) => {
+  try {
+    const { userId } = req.params;
+
+    // Get the user by ID
+    const user = await User.findById(userId).populate("repairs");
+
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    // Extract repairs from the user object
+    const repairs = user.repairs;
+
+    res.status(200).json({ repairs });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+})
+
+
+module.exports = {
+  createSuperAdmin,
   createUser, loginUserCtrl, loginAdmin, addRestrictionDate, getAllUsers, getaUser, deleteaUser,
   updatedUser, updateStatusUser, addMachineToUserLocation, updateMachineInUserLocation, updateMachineStatus,
-  deleteMachineFromUser, getMachinesOfUser, getMachinebyId, getMachinesByLocationId,unableAdmin, blockedAdmin, unblockedAdmin
+  deleteMachineFromUser, getMachinesOfUser, getMachinebyId, getMachinesByLocationId, unableAdmin, blockedAdmin, unblockedAdmin,
+  addRepairToAdmin,getAllRepairs
 }

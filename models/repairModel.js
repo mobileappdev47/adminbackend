@@ -27,7 +27,6 @@ const repairSchema = new mongoose.Schema({
   },
   location: {
     type: String,
-    required: true
   },
   statusOfRepair: {
     type: String,
@@ -37,11 +36,9 @@ const repairSchema = new mongoose.Schema({
   },
   issue: {
     type: String,
-    required: true,
   },
   image: {
-    type: String, // Assuming you store the image URL or file path
-    required: true,
+    type: String, 
   },
 });
 

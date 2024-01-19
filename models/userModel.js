@@ -53,6 +53,10 @@ var userSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Employee',
     }],
+    repairs: [{
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Repair',
+    }],
     refreshToken: {
       type: String,
     },
@@ -63,6 +67,7 @@ var userSchema = new mongoose.Schema(
       type: Date,
       default: Date.now,
     },
+
   },
   {
     timestamps: true,

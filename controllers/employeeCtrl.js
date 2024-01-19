@@ -910,7 +910,6 @@ const getRecentCollectionReport = asyncHandler(async (req, res) => {
 });
 
 
-
 // last collection 
 const lastCollectionReport = asyncHandler(async (req, res) => {
   const { employeeId } = req.params;
