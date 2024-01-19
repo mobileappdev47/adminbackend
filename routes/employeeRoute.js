@@ -10,7 +10,10 @@ const { addEmployeeToAdmin, loginEmployeeCtrl, getEmployeeById,
     addCollectionReport,
     getAllRepairsReport,
     getAllServiceReports,
-    getAllMachinesForEmployee
+    getAllMachinesForEmployee,
+    getAllCollectionReport,
+    getRecentCollectionReport,
+    lastCollectionReport
 } = require('../controllers/employeeCtrl');
 
 const router = express.Router();
@@ -37,7 +40,10 @@ router.post('/repair/:employeeId', employeeMiddleware, addNewRepair)
 router.get('/service/:employeeId/report', employeeMiddleware, getAllServiceReports)
 router.post('/servicereport/:employeeId', employeeMiddleware, addServiceReport)
 
-
+// add new collection report
+router.get('/collection/:employeeId/report', employeeMiddleware, getAllCollectionReport)
+router.get('/recent-collection/:employeeId/report', employeeMiddleware, getRecentCollectionReport)
+router.get('/last-collection/:employeeId/report', employeeMiddleware, lastCollectionReport)
 router.post('/collection/:employeeId/:locationId', employeeMiddleware, addCollectionReport)
 
 
