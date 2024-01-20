@@ -846,35 +846,61 @@ const getAllCollectionReport = asyncHandler(async (req, res) => {
       );
     }
 
+    // Group reports by location ID
+    const groupedReports = {};
+    collectionReports.forEach(report => {
+      const locationId = report.location._id.toString();
+      if (!groupedReports[locationId]) {
+        groupedReports[locationId] = {
+          location: report.location,
+          collectionReports: [],
+        };
+      }
+      groupedReports[locationId].collectionReports.push(report);
+    });
+
     // If page and limit are provided, paginate the result
     if (page && limit) {
-      const totalCount = collectionReports.length;
+      const totalCount = Object.keys(groupedReports).length;
       const totalPages = Math.ceil(totalCount / limit);
       const currentPage = parseInt(page);
 
       const skip = (currentPage - 1) * limit;
-      const paginatedCollectionReports = collectionReports.slice(skip, skip + limit);
+      const paginatedGroupedReports = Object.values(groupedReports).slice(skip, skip + limit);
+
+      // Adjust the response structure to nest collectionReports under location
+      const adjustedResponse = paginatedGroupedReports.map(groupedReport => ({
+        location: groupedReport.location,
+        collectionReports: groupedReport.collectionReports,
+      }));
 
       return res.status(200).json({
         success: true,
         message: 'Collection reports retrieved successfully',
-        collectionReports: paginatedCollectionReports,
+        groupedReports: adjustedResponse,
         totalPages,
         currentPage,
       });
     }
 
     // If page and limit are not provided, return all collection reports without pagination
+    const adjustedResponse = Object.values(groupedReports).map(groupedReport => ({
+      location: groupedReport.location,
+      collectionReports: groupedReport.collectionReports,
+    }));
+
     return res.status(200).json({
       success: true,
       message: 'Collection reports retrieved successfully',
-      collectionReports: collectionReports.length > 0 ? collectionReports : [],
+      groupedReports: adjustedResponse,
     });
   } catch (error) {
     console.error('Error retrieving collection reports:', error);
     return res.status(500).json({ success: false, message: 'Internal Server Error' });
   }
 });
+
+
 
 
 

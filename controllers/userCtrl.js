@@ -48,8 +48,6 @@ const createUser = asyncHandler(async (req, res) => {
 });
 
 
-
-
 //login admin
 const loginUserCtrl = asyncHandler(async (req, res) => {
   const { email, password } = req.body;
