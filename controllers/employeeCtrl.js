@@ -823,14 +823,17 @@ const getAllCollectionReport = asyncHandler(async (req, res) => {
 
   try {
     // Find the employee by ID and populate the 'newCollectionReports' field with 'location'
-    const employee = await Employee.findById(employeeId).populate({
-      path: 'newCollectionReports',
-      populate: {
-        path: 'location',
-        model: 'Location',
-        select: 'locationname _id address createdAt ',
-      },
-    }).exec();
+    const employee = await Employee.findById(employeeId)
+      .select('firstname lastname')
+      .populate({
+        path: 'newCollectionReports',
+        populate: {
+          path: 'location',
+          model: 'Location',
+          select: 'locationname _id address createdAt',
+        },
+      })
+      .exec();
 
     if (!employee) {
       return res.status(404).json({ success: false, message: 'Employee not found' });
@@ -853,6 +856,7 @@ const getAllCollectionReport = asyncHandler(async (req, res) => {
       if (!groupedReports[locationId]) {
         groupedReports[locationId] = {
           location: report.location,
+          employee: { firstname: employee.firstname, lastname: employee.lastname },
           collectionReports: [],
         };
       }
@@ -871,6 +875,7 @@ const getAllCollectionReport = asyncHandler(async (req, res) => {
       // Adjust the response structure to nest collectionReports under location
       const adjustedResponse = paginatedGroupedReports.map(groupedReport => ({
         location: groupedReport.location,
+        employee: groupedReport.employee,
         collectionReports: groupedReport.collectionReports,
       }));
 
@@ -886,6 +891,7 @@ const getAllCollectionReport = asyncHandler(async (req, res) => {
     // If page and limit are not provided, return all collection reports without pagination
     const adjustedResponse = Object.values(groupedReports).map(groupedReport => ({
       location: groupedReport.location,
+      employee: groupedReport.employee,
       collectionReports: groupedReport.collectionReports,
     }));
 
@@ -899,6 +905,8 @@ const getAllCollectionReport = asyncHandler(async (req, res) => {
     return res.status(500).json({ success: false, message: 'Internal Server Error' });
   }
 });
+
+
 
 
 
