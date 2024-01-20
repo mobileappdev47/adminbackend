@@ -828,7 +828,7 @@ const getAllCollectionReport = asyncHandler(async (req, res) => {
       populate: {
         path: 'location',
         model: 'Location',
-        select: 'locationname _id',
+        select: 'locationname _id address createdAt ',
       },
     }).exec();
 

@@ -48,6 +48,10 @@ const collectionReportSchema = new mongoose.Schema({
     type: String, // Assuming you store the image URL or file path
     required: true,
   },
+
+},
+{
+  timestamps: true
 });
 
 module.exports = mongoose.model("CollectionReport", collectionReportSchema);
