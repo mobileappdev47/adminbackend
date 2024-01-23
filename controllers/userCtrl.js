@@ -274,47 +274,59 @@ const updatedUser = asyncHandler(async (req, res) => {
 });
 
 
-// search and all admins
+
 const getAllUsers = asyncHandler(async (req, res) => {
+  const { page, limit, search } = req.query;
+
   try {
-    const { searchuser, page, limit } = req.query;
+    // Find all users and populate machines with filtered user details
+    const users = await User.find({});
 
-    let query = { role: { $ne: 'superadmin' } };
+    // Filter users based on the search term
+    const filteredUsers = users
+      .filter(user => {
+        const firstname = user.firstname?.toLowerCase();
+        const lastname = user.lastname?.toLowerCase();
+        const email = user.email?.toLowerCase();
+        const address = user.address?.toLowerCase();
+        const phone = user.phone?.toString(); // Convert phone to string for consistent comparison
+        const searchLower = (search || '')?.toLowerCase();
+        return (
+          firstname?.includes(searchLower) ||
+          lastname?.includes(searchLower) ||
+          email?.includes(searchLower) ||
+          address?.includes(searchLower) ||
+          phone?.includes(searchLower)
+        );
+      });
 
-    if (searchuser) {
-      query = {
-        $and: [
-          { role: { $ne: 'superadmin' } },
-          { firstname: { $regex: new RegExp(searchuser, 'i') } }
-        ]
-      };
+    if (!filteredUsers || filteredUsers.length === 0) {
+      // Return 404 status code for not found
+      return res.status(200).json({ success: true, filteredUsers });
     }
 
-    if (page && limit) {
-      const currentPage = parseInt(page);
-      const pageSize = parseInt(limit);
+    // Apply pagination logic if needed for users
+    const paginatedUsers = (page && limit)
+      ? filteredUsers.slice((page - 1) * limit, page * limit)
+      : filteredUsers;
 
-      const totalCount = await User.countDocuments(query);
-      const totalPages = Math.ceil(totalCount / pageSize);
+    // Calculate total pages for users
+    const totalUserPages = (limit) ? Math.ceil(filteredUsers.length / limit) : 1;
 
-      const skip = (currentPage - 1) * pageSize;
+    return res.json({
+      success: true,
+      users: paginatedUsers,
+      currentPage: parseInt(page) || 1,
+      totalUserPages,
+    });
 
-      const users = await User.find(query)
-        .skip(skip)
-        .limit(pageSize);
-
-      return res.json({ success: true, users, totalPages, currentPage, totalCount });
-    }
-
-    // If no page and limit provided, fetch all users without pagination
-    const users = await User.find(query);
-
-    return res.json({ success: true, users });
   } catch (error) {
-    console.error('Get all users error:', error);
-    return res.status(500).json({ success: false, message: 'Internal Server Error' });
+    return res.status(500).json({ success: false, error: error.message });
   }
 });
+
+
+
 
 
 const unableAdmin = asyncHandler(async (req, res) => {
@@ -702,7 +714,7 @@ const addRepairToAdmin = asyncHandler(async (req, res) => {
 
 
 // get all repairs
-const getAllRepairs = asyncHandler(async(req, res) => {
+const getAllRepairs = asyncHandler(async (req, res) => {
   try {
     const { userId } = req.params;
 
@@ -729,5 +741,5 @@ module.exports = {
   createUser, loginUserCtrl, loginAdmin, addRestrictionDate, getAllUsers, getaUser, deleteaUser,
   updatedUser, updateStatusUser, addMachineToUserLocation, updateMachineInUserLocation, updateMachineStatus,
   deleteMachineFromUser, getMachinesOfUser, getMachinebyId, getMachinesByLocationId, unableAdmin, blockedAdmin, unblockedAdmin,
-  addRepairToAdmin,getAllRepairs
+  addRepairToAdmin, getAllRepairs
 }

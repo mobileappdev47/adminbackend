@@ -987,7 +987,6 @@ const getAllCollectionReport = asyncHandler(async (req, res) => {
 // recent collection
 const getRecentCollectionReport = asyncHandler(async (req, res) => {
   const { employeeId } = req.params;
-
   try {
     // Find the employee by ID and retrieve the last three collection reports
     const employee = await Employee.findById(employeeId)
@@ -1005,41 +1004,20 @@ const getRecentCollectionReport = asyncHandler(async (req, res) => {
     if (!employee) {
       return res.status(404).json({ success: false, message: 'Employee not found' });
     }
-
     // Extract the last three collection reports
     const lastThreeCollectionReports = employee.newCollectionReports;
-
-    // Group the last three collection reports by location ID
-    const groupedReports = {};
-    lastThreeCollectionReports.forEach(report => {
-      const locationId = report.location._id.toString();
-      if (!groupedReports[locationId]) {
-        groupedReports[locationId] = {
-          location: report.location,
-          employee: { firstname: employee.firstname, lastname: employee.lastname },
-          collectionReports: [],
-        };
-      }
-      groupedReports[locationId].collectionReports.push(report);
-    });
-
-    // Adjust the response structure to nest collectionReports under location
-    const adjustedResponse = Object.values(groupedReports).map(groupedReport => ({
-      location: groupedReport.location,
-      employee: groupedReport.employee,
-      collectionReports: groupedReport.collectionReports,
-    }));
 
     return res.status(200).json({
       success: true,
       message: 'Last three collection reports retrieved successfully',
-      groupedReports: adjustedResponse,
+      lastThreeCollectionReports,
     });
   } catch (error) {
     console.error('Error retrieving last three collection reports:', error);
     return res.status(500).json({ success: false, message: 'Internal Server Error' });
   }
 });
+
 
 
 
