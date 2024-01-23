@@ -633,6 +633,83 @@ const getAllRepairsReport = asyncHandler(async (req, res) => {
   }
 });
 
+// pending repairs
+const getLastTwoPendingRepairs = asyncHandler(async (req, res) => {
+  const { employeeId } = req.params;
+
+  try {
+    // Find the employee by ID and populate the 'newRepairs' field
+    const employee = await Employee.findById(employeeId)
+      .populate({
+        path: 'newRepairs',
+        match: { statusOfRepair: 'Pending' }, // Filter by statusOfRepair: 'Pending'
+        options: { sort: { _id: -1 }, limit: 2 }, // Sort by createdAt in descending order, limit to 2
+        populate: {
+          path: 'location',
+          model: 'Location',
+          select: 'locationname _id',
+        },
+      })
+      .exec();
+
+    if (!employee) {
+      return res.status(404).json({ success: false, message: 'Employee not found' });
+    }
+
+    // Retrieve the last two pending repair reports
+    const lastTwoPendingRepairs = employee.newRepairs;
+
+    // Map the repair reports and include the location field
+    const adjustedResponse = lastTwoPendingRepairs.map(report => ({
+      ...report.toObject({ getters: true }),
+      location: report.location ? report.location.locationname : null,
+    }));
+
+    return res.status(200).json({
+      success: true,
+      message: 'Last two pending repair reports retrieved successfully',
+      lastTwoPendingRepairs: adjustedResponse,
+    });
+  } catch (error) {
+    console.error('Error retrieving last two pending repair reports:', error);
+    return res.status(500).json({ success: false, message: 'Internal Server Error' });
+  }
+});
+
+
+// change status of repairs
+
+const changeStatusOfRepairs = asyncHandler(async(req, res) => {
+  const { repairId } = req.params;
+  const { newStatus } = req.body; // Assuming you send the new status in the request body
+
+  try {
+    // Validate that the newStatus is one of the allowed values
+    if (!['Done', 'Pending', 'Running'].includes(newStatus)) {
+      return res.status(400).json({ success: false, message: 'Invalid status' });
+    }
+
+    // Update the statusOfRepair field for the specified repairId
+    const updatedRepair = await Repair.findByIdAndUpdate(
+      repairId,
+      { $set: { statusOfRepair: newStatus } },
+      { new: true }
+    );
+
+    if (!updatedRepair) {
+      return res.status(404).json({ success: false, message: 'Repair not found' });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: 'Status of repair updated successfully',
+      updatedRepair,
+    });
+  } catch (error) {
+    console.error('Error updating status of repair:', error);
+    return res.status(500).json({ success: false, message: 'Internal Server Error' });
+  }
+})
 
 // add service report 
 const addServiceReport = asyncHandler(async (req, res) => {
@@ -1017,6 +1094,6 @@ const lastCollectionReport = asyncHandler(async (req, res) => {
 module.exports = {
   addEmployeeToAdmin, loginEmployeeCtrl, getEmployeeById, updateEmployee,
   deleteEmployee, getAllEmployeesForUser, updateStatusOfEmployee, getAllUsersEmployees, getLocationOfEmployee, getAllMachinesForEmployee,
-  addNewRepair, getAllRepairsReport, getAllServiceReports, addServiceReport, addCollectionReport, getAllCollectionReport, getRecentCollectionReport,
+  addNewRepair, getAllRepairsReport,getLastTwoPendingRepairs,changeStatusOfRepairs, getAllServiceReports, addServiceReport, addCollectionReport, getAllCollectionReport, getRecentCollectionReport,
   lastCollectionReport
 }

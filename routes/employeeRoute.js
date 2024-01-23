@@ -13,7 +13,9 @@ const { addEmployeeToAdmin, loginEmployeeCtrl, getEmployeeById,
     getAllMachinesForEmployee,
     getAllCollectionReport,
     getRecentCollectionReport,
-    lastCollectionReport
+    lastCollectionReport,
+    getLastTwoPendingRepairs,
+    changeStatusOfRepairs
 } = require('../controllers/employeeCtrl');
 
 const router = express.Router();
@@ -34,7 +36,10 @@ router.delete('/delete/:userId/:employeeId', authMiddleware, deleteEmployee)
 
 // add new report 
 router.get('/employees/:employeeId/repairs', employeeMiddleware, getAllRepairsReport)
+router.get('/pending/:employeeId/repairs', employeeMiddleware, getLastTwoPendingRepairs)
 router.post('/repair/:employeeId', employeeMiddleware, addNewRepair)
+router.post('/changestatus/:repairId', employeeMiddleware, changeStatusOfRepairs)
+
 
 // add new service report
 router.get('/service/:employeeId/report', employeeMiddleware, getAllServiceReports)
