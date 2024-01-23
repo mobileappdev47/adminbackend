@@ -830,7 +830,7 @@ const getAllCollectionReport = asyncHandler(async (req, res) => {
         populate: {
           path: 'location',
           model: 'Location',
-          select: 'locationname _id address createdAt',
+          select: 'locationname _id address numofmachines createdAt',
         },
       })
       .exec();
@@ -907,11 +907,6 @@ const getAllCollectionReport = asyncHandler(async (req, res) => {
 });
 
 
-
-
-
-
-
 // recent collection
 const getRecentCollectionReport = asyncHandler(async (req, res) => {
   const { employeeId } = req.params;
@@ -922,6 +917,11 @@ const getRecentCollectionReport = asyncHandler(async (req, res) => {
       .populate({
         path: 'newCollectionReports',
         options: { limit: 3, sort: { _id: -1 } },
+        populate: {
+          path: 'location',
+          model: 'Location',
+          select: 'locationname _id address numofmachines createdAt',
+        },
       })
       .exec();
 
@@ -932,10 +932,31 @@ const getRecentCollectionReport = asyncHandler(async (req, res) => {
     // Extract the last three collection reports
     const lastThreeCollectionReports = employee.newCollectionReports;
 
+    // Group the last three collection reports by location ID
+    const groupedReports = {};
+    lastThreeCollectionReports.forEach(report => {
+      const locationId = report.location._id.toString();
+      if (!groupedReports[locationId]) {
+        groupedReports[locationId] = {
+          location: report.location,
+          employee: { firstname: employee.firstname, lastname: employee.lastname },
+          collectionReports: [],
+        };
+      }
+      groupedReports[locationId].collectionReports.push(report);
+    });
+
+    // Adjust the response structure to nest collectionReports under location
+    const adjustedResponse = Object.values(groupedReports).map(groupedReport => ({
+      location: groupedReport.location,
+      employee: groupedReport.employee,
+      collectionReports: groupedReport.collectionReports,
+    }));
+
     return res.status(200).json({
       success: true,
       message: 'Last three collection reports retrieved successfully',
-      lastThreeCollectionReports,
+      groupedReports: adjustedResponse,
     });
   } catch (error) {
     console.error('Error retrieving last three collection reports:', error);
@@ -944,16 +965,25 @@ const getRecentCollectionReport = asyncHandler(async (req, res) => {
 });
 
 
+
+
 // last collection 
 const lastCollectionReport = asyncHandler(async (req, res) => {
   const { employeeId } = req.params;
 
   try {
     // Find the employee by ID and populate the 'newCollectionReports' field
-    const employee = await Employee.findById(employeeId).populate({
-      path: 'newCollectionReports',
-      options: { sort: { _id: -1 }, limit: 1 }, // Sort by createdAt in descending order, limit to 1
-    }).exec();
+    const employee = await Employee.findById(employeeId)
+      .populate({
+        path: 'newCollectionReports',
+        options: { sort: { _id: -1 }, limit: 1 }, // Sort by createdAt in descending order, limit to 1
+        populate: {
+          path: 'location',
+          model: 'Location',
+          select: 'locationname _id address numofmachines createdAt',
+        },
+      })
+      .exec();
 
     if (!employee) {
       return res.status(404).json({ success: false, message: 'Employee not found' });
@@ -962,16 +992,26 @@ const lastCollectionReport = asyncHandler(async (req, res) => {
     // Retrieve the first (and only) item in the array (last collection report)
     const lastCollectionReport = employee.newCollectionReports[0];
 
+    // Adjust the response structure to include location details
+    const lastCollection = lastCollectionReport
+      ? {
+          location: lastCollectionReport.location,
+          employee: { firstname: employee.firstname, lastname: employee.lastname },
+          lastCollectionReport: lastCollectionReport,
+        }
+      : null;
+
     return res.status(200).json({
       success: true,
       message: 'Last collection report retrieved successfully',
-      lastCollectionReport: lastCollectionReport || null, // Return null if there's no report
+      lastCollection,
     });
   } catch (error) {
     console.error('Error retrieving last collection report:', error);
     return res.status(500).json({ success: false, message: 'Internal Server Error' });
   }
-})
+});
+
 
 
 module.exports = {
