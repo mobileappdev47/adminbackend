@@ -8,7 +8,7 @@ const router = express.Router();
 
 router.post('/create', authMiddleware, addLocationToUser);
 router.put('/edit-location/:userId/location/:locationId', authMiddleware, updateLocation)
-router.put('/:locationId/activestatus', authMiddleware, updateActiveStatus)
+router.put('/:locationId/activestatus', updateActiveStatus)
 
 router.delete('/delete-location/:userId/location/:locationId', authMiddleware, deleteLocation)
 router.get('/:userId', authMiddleware, getAllLocationsForUser)

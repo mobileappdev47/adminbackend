@@ -506,20 +506,10 @@ const updateMachineInUserLocation = asyncHandler(async (req, res) => {
 
 // update machine active status 
 const updateMachineStatus = asyncHandler(async (req, res) => {
-  const { machineId, userId } = req.params;
+  const { machineId } = req.params;
   const { activeMachineStatus } = req.body;
 
   try {
-    // Check if userId is provided
-    if (!userId) {
-      return res.status(400).json({ success: false, message: 'UserId is required', statusCode: 400 });
-    }
-
-    // Check if the user with the provided userId exists
-    const user = await User.findById(userId);
-    if (!user) {
-      return res.status(404).json({ success: false, message: 'User not found', statusCode: 404 });
-    }
 
     // Find and update the machine
     const updatedMachine = await Machine.findByIdAndUpdate(
