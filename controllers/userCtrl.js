@@ -584,45 +584,95 @@ const deleteMachineFromUser = asyncHandler(async (req, res) => {
 // get a machines 
 const getMachinesOfUser = asyncHandler(async (req, res) => {
   const { userId } = req.params;
+  const { searchQuery, page, limit } = req.query;
 
   try {
-    const userWithLocationsAndMachines = await User.findById(userId)
-      .populate({
-        path: 'location',
-        populate: {
+    const user = await User.findById(userId).populate({
+      path: 'location',
+      select: 'locationname address percentage machines createdAt updatedAt employees admin activeStatus',
+      populate: [
+        {
           path: 'machines',
           model: 'Machine',
           populate: {
             path: 'employees',
-            model: 'Employee'
-          }
-        }
-      })
-      .exec();
+            model: 'Employee',
+            select: 'firstname lastname',
+          },
+        },
+        {
+          path: 'employees',
+          model: 'Employee',
+          select: 'firstname lastname',
+        },
+        {
+          path: 'admin',
+          model: 'User',
+          select: 'firstname lastname _id',
+        },
+      ],
+    });
 
-    if (!userWithLocationsAndMachines) {
-      return res.status(404).json({ success: false, message: 'User not found', statusCode: 404 });
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found',
+        status: 404,
+      });
     }
 
-    const updatedUser = await User.findById(userId)
-      .populate({
-        path: 'location',
-        populate: {
-          path: 'machines',
-          model: 'Machine',
-          populate: {
-            path: 'employees',
-            model: 'Employee'
-          }
-        }
-      })
-      .exec();
+    // Use lean() to get a plain JavaScript object without converting to a Mongoose document
+    let locations = await Promise.all(user.location.map(async location => {
+      const numofmachines = location.machines.length;
+      
+      // Include the employee data without calling toObject()
+      return { ...location.toObject({ getters: true }), numofmachines };
+    }));
 
-    return res.status(200).json({ success: true, machines: updatedUser.location, statusCode: 200 });
+    if (searchQuery) {
+      const lowerCaseSearchQuery = searchQuery.toLowerCase();
+      locations = locations.filter(location =>
+        location.machines.some(machine =>
+          machine.machineNumber.toLowerCase().includes(lowerCaseSearchQuery) ||
+          machine.serialNumber.toLowerCase().includes(lowerCaseSearchQuery)
+        )
+      );
+    }
+
+    let paginatedLocations;
+
+    if (page && limit) {
+      const totalCount = locations.length;
+      const totalPages = Math.ceil(totalCount / limit);
+      const currentPage = parseInt(page);
+
+      const skip = (currentPage - 1) * limit;
+
+      paginatedLocations = locations.slice(skip, skip + limit);
+      res.json({
+        success: true,
+        locations: paginatedLocations,
+        totalPages,
+        currentPage,
+      });
+    } else {
+      res.json({
+        success: true,
+        locations,
+        totalCount: locations.length,
+      });
+    }
   } catch (error) {
-    return res.status(500).json({ success: false, error: error.message, statusCode: 500 });
+    res.status(500).json({
+      success: false,
+      message: 'Internal Server Error',
+      status: 500,
+      error: error.message,
+    });
   }
 });
+
+
 
 
 

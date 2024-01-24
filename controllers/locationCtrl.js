@@ -188,17 +188,17 @@ const getLocationbyId = asyncHandler(async (req, res) => {
 // all locations of user
 const getAllLocationsForUser = asyncHandler(async (req, res) => {
   const { userId } = req.params;
-  const { searchLocation, page, limit } = req.query;
+  const { searchQuery, page, limit } = req.query;
 
   try {
     const user = await User.findById(userId).populate({
       path: 'location',
-      select: 'locationname address percentage machines createdAt updatedAt employees admin activeStatus', // Include admin field
+      select: 'locationname address percentage machines createdAt updatedAt employees admin activeStatus',
       populate: [
         {
           path: 'machines',
           model: 'Machine',
-          select: '_id',
+          select: '_id machineNumber serialNumber',
         },
         {
           path: 'employees',
@@ -207,7 +207,7 @@ const getAllLocationsForUser = asyncHandler(async (req, res) => {
         },
         {
           path: 'admin',
-          model: 'User', // Assuming your user model is named 'User'
+          model: 'User',
           select: 'firstname lastname _id',
         },
       ],
@@ -224,15 +224,19 @@ const getAllLocationsForUser = asyncHandler(async (req, res) => {
       return { ...location.toObject(), numofmachines };
     }));
 
-    if (searchLocation) {
+    
+    if (searchQuery) {
+      const lowerCaseSearchQuery = searchQuery.toLowerCase();
       locations = locations.filter(location =>
-        location.locationname.toLowerCase().includes(searchLocation.toLowerCase())
+        location.machines.some(machine =>
+          machine.machineNumber.toLowerCase().includes(lowerCaseSearchQuery) ||
+          machine.serialNumber.toLowerCase().includes(lowerCaseSearchQuery)
+        )
       );
     }
 
     let paginatedLocations;
-    
-    // Check if page and limit are provided
+
     if (page && limit) {
       const totalCount = locations.length;
       const totalPages = Math.ceil(totalCount / limit);
@@ -243,13 +247,14 @@ const getAllLocationsForUser = asyncHandler(async (req, res) => {
       paginatedLocations = locations.slice(skip, skip + limit);
       res.json({ locations: paginatedLocations, totalPages, currentPage });
     } else {
-      // If page and limit are not provided, return all locations
       res.json({ locations, totalCount: locations.length });
     }
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });
+
+
 
 
 
