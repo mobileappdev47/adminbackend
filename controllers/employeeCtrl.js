@@ -390,7 +390,7 @@ const getLocationOfEmployee = asyncHandler(async (req, res) => {
       .populate({
         path: 'machines',
         model: 'Machine',
-        select: '_id',
+        select: '_id machineNumber serialNumber',
       })
       .populate({
         path: 'employees',
