@@ -462,7 +462,7 @@ const addMachineToUserLocation = asyncHandler(async (req, res) => {
 // update machine
 const updateMachineInUserLocation = asyncHandler(async (req, res) => {
   const { userId } = req.params;
-  const { machineId, machineNumber, serialNumber, employeeIds } = req.body;
+  const { machineId, machineNumber, serialNumber, employeeIds, gameName } = req.body;
 
   try {
     const user = await User.findById(userId).populate('location');
@@ -478,6 +478,9 @@ const updateMachineInUserLocation = asyncHandler(async (req, res) => {
     // Update machine details if provided in the request
     existingMachine.machineNumber = machineNumber || existingMachine.machineNumber;
     existingMachine.serialNumber = serialNumber || existingMachine.serialNumber;
+    existingMachine.initialNumber = initialNumber || existingMachine.initialNumber;
+    existingMachine.currentNumber = currentNumber || existingMachine.currentNumber;
+    existingMachine.gameName = gameName || existingMachine.gameName;
     existingMachine.employees = employeeIds || existingMachine.employees;
 
     const updatedMachine = await existingMachine.save();
