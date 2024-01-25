@@ -462,7 +462,7 @@ const addMachineToUserLocation = asyncHandler(async (req, res) => {
 // update machine
 const updateMachineInUserLocation = asyncHandler(async (req, res) => {
   const { userId } = req.params;
-  const { machineId, machineNumber, serialNumber, employeeIds, gameName } = req.body;
+  const { machineId, machineNumber, serialNumber, employeeIds, gameName, initialNumber, currentNumber } = req.body;
 
   try {
     const user = await User.findById(userId).populate('location');
