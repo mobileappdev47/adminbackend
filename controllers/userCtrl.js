@@ -412,7 +412,7 @@ const unblockedAdmin = asyncHandler(async (req, res) => {
 // user add machine
 const addMachineToUserLocation = asyncHandler(async (req, res) => {
   const { userId } = req.params;
-  const { locationId, employeeIds, machineNumber, serialNumber } = req.body;
+  const { locationId, employeeIds, machineNumber, serialNumber, gameName } = req.body;
 
   try {
     const user = await User.findById(userId).populate('location');
@@ -431,7 +431,7 @@ const addMachineToUserLocation = asyncHandler(async (req, res) => {
       return res.status(400).json({ success: false, message: 'Serial number already added' });
     }
 
-    const newMachine = new Machine({ machineNumber, serialNumber });
+    const newMachine = new Machine({ machineNumber, serialNumber,gameName });
     newMachine.employees = employeeIds;
 
     await newMachine.save();

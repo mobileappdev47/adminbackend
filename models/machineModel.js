@@ -20,6 +20,9 @@ const machineSchema = new mongoose.Schema(
             type: String,
             default: "$0"
         },
+        gameName:{
+            type: String,
+        },
         activeMachineStatus: {
             type: String,
             enum: ['Active', 'In Service'], 
