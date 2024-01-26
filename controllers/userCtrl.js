@@ -760,23 +760,68 @@ const addRepairToAdmin = asyncHandler(async (req, res) => {
 const getAllRepairs = asyncHandler(async (req, res) => {
   try {
     const { userId } = req.params;
+    const { page, limit, search } = req.query;
 
-    // Get the user by ID
+    // Get the user by ID and populate the 'repairs' field
     const user = await User.findById(userId).populate("repairs");
 
     if (!user) {
       return res.status(404).json({ error: "User not found" });
     }
 
-    // Extract repairs from the user object
-    const repairs = user.repairs;
+    // Map the repairs and include any necessary fields
+    const repairReports = user.repairs.map(report => ({
+      ...report.toObject({ getters: true }),
+      // Add other fields as needed
+    }));
 
-    res.status(200).json({ repairs });
+    // Apply search filter if search is provided
+    let filteredRepairs = repairReports;
+    if (search) {
+      const searchRegex = new RegExp(search, 'i');
+      filteredRepairs = repairReports.filter(report =>
+        // Add fields for search as needed
+        report.machineNumber && report.machineNumber.match(searchRegex) ||
+        report.serialNumber && report.serialNumber.match(searchRegex)
+
+      );
+    }
+
+    if (!filteredRepairs || filteredRepairs.length === 0) {
+      // Return 404 status code for not found
+      return res.status(200).json({ success: true, filteredRepairs });
+    }
+
+    // Initialize total pages
+    let totalPages;
+
+    // Apply pagination logic if needed
+    let paginatedRepairs;
+    if (page && limit) {
+      const totalCount = filteredRepairs.length;
+      totalPages = Math.ceil(totalCount / limit);
+      const currentPage = parseInt(page);
+
+      const skip = (currentPage - 1) * limit;
+      paginatedRepairs = filteredRepairs.slice(skip, skip + limit);
+    } else {
+      // If page and limit are not provided, return all repair reports
+      paginatedRepairs = filteredRepairs;
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: 'Repairs retrieved successfully',
+      repairs: paginatedRepairs,
+      totalPages,
+      currentPage: parseInt(page) || 1,
+    });
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: "Internal server error" });
+    console.error('Error retrieving repairs:', error);
+    return res.status(500).json({ success: false, message: 'Internal Server Error' });
   }
-})
+});
+
 
 
 module.exports = {
