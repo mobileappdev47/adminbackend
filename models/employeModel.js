@@ -25,9 +25,9 @@ var employeeSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
-    image: {
+    image: [{
       type: String,
-    },
+    }],
     addedByAdmin: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
     activeEmployeeStatus: {
       type: String,

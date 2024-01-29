@@ -678,7 +678,6 @@ const getLastTwoPendingRepairs = asyncHandler(async (req, res) => {
 
 
 // change status of repairs
-
 const changeStatusOfRepairs = asyncHandler(async(req, res) => {
   const { repairId } = req.params;
   const { newStatus } = req.body; // Assuming you send the new status in the request body
@@ -710,6 +709,7 @@ const changeStatusOfRepairs = asyncHandler(async(req, res) => {
     return res.status(500).json({ success: false, message: 'Internal Server Error' });
   }
 })
+
 
 // add service report 
 const addServiceReport = asyncHandler(async (req, res) => {
