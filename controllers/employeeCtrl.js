@@ -828,8 +828,6 @@ const getAllServiceReports = asyncHandler(async (req, res) => {
 });
 
 
-
-
 // add collection report
 const addCollectionReport = asyncHandler(async (req, res) => {
   const { employeeId, locationId } = req.params; // Extract locationId from params

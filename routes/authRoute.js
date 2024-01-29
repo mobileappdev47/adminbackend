@@ -22,6 +22,7 @@ const {
     unableAdmin,
     addRepairToAdmin,
     getAllRepairs,
+    getAllRecentCollectionReports,
 } = require('../controllers/userCtrl');
 const { authMiddleware, isAdmin } = require('../middlerwares/authMiddleware');
 const { route } = require('./employeeRoute');
@@ -49,7 +50,7 @@ router.put('/block/:userId', authMiddleware, isAdmin, blockedAdmin);
 router.put('/unblock/:userId', authMiddleware, isAdmin, unblockedAdmin);
 
 router.put('/editstatus/:adminId', authMiddleware, isAdmin, updateStatusUser);
-
+router.get('/recent-collection/report/:userId',authMiddleware, getAllRecentCollectionReports)
 
 // repair
 router.post('/addrepair/:userId', authMiddleware, addRepairToAdmin)

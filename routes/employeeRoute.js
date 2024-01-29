@@ -25,8 +25,7 @@ router.get('/allemployee', authMiddleware, isAdmin, getAllUsersEmployees)
 
 router.get('/:userId', authMiddleware, getAllEmployeesForUser)
 router.get('/location/:employeeId', employeeMiddleware, getLocationOfEmployee)
-router.get('/machine/:employeeId', employeeMiddleware, getAllMachinesForEmployee)
-
+router.get('/machine/:employeeId', employeeMiddleware, getAllMachinesForEmployee);
 router.post('/register/:userId', authMiddleware, addEmployeeToAdmin);
 router.post('/login', loginEmployeeCtrl);
 router.get('/:userId/:employeeId', authMiddleware, getEmployeeById)

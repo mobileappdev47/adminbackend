@@ -44,14 +44,14 @@ const collectionReportSchema = new mongoose.Schema({
     type: Number,
     required: true,
   },
-  image: {
+  image: [{
     type: String, // Assuming you store the image URL or file path
     required: true,
-  },
+  }],
 
 },
-{
-  timestamps: true
-});
+  {
+    timestamps: true
+  });
 
 module.exports = mongoose.model("CollectionReport", collectionReportSchema);

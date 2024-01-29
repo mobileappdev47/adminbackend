@@ -9,7 +9,8 @@ const Machine = require('../models/machineModel')
 const jwt = require("jsonwebtoken");
 const crypto = require("crypto");
 const mongoose = require('mongoose')
-const Repair = require('../models/repairModel')
+const Repair = require('../models/repairModel');
+const CollectionReport = require('../models/collectionModel')
 
 // create admin and superadmin
 
@@ -129,7 +130,7 @@ const loginAdmin = asyncHandler(async (req, res) => {
 // get a admin
 const getaUser = asyncHandler(async (req, res) => {
   const { id } = req.params;
-  validateMongodbId(id);
+  // validateMongodbId(id);
 
   try {
     const getaUser = await User.findById(id).populate({
@@ -823,11 +824,74 @@ const getAllRepairs = asyncHandler(async (req, res) => {
 });
 
 
+// recent collection report
+const getAllRecentCollectionReports = asyncHandler(async (req, res) => {
+  try {
+    // Extract the user ID from the request parameters
+    const { userId } = req.params;
+
+    // Find the user and populate the associated employees
+    const user = await User.findById(userId).populate('employees');
+
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    // Extract the associated employees
+    const associatedEmployees = user.employees;
+
+    // Retrieve the last three collection reports across all employees with detailed information
+    const allRecentCollectionReports = await Employee.aggregate([
+      {
+        $match: { _id: { $in: associatedEmployees.map(employee => employee._id) } }
+      },
+      {
+        $unwind: '$newCollectionReports'
+      },
+      {
+        $sort: { 'newCollectionReports.createdAt': -1 }
+      },
+      {
+        $limit: 3
+      },
+      {
+        $group: {
+          _id: null,
+          lastThreeCollectionReports: { $push: '$newCollectionReports' }
+        }
+      }
+    ]);
+
+    if (!allRecentCollectionReports || allRecentCollectionReports.length === 0) {
+      return res.status(404).json({ success: false, message: 'No recent collection reports found' });
+    }
+
+    const lastThreeIds = allRecentCollectionReports[0].lastThreeCollectionReports.map(report => report._id);
+console.log(lastThreeIds);
+    // Retrieve the detailed information for each report using the IDs
+    const detailedReports = await CollectionReport.find({ _id: { $in: lastThreeIds } });
+
+    return res.status(200).json({
+      success: true,
+      message: 'Details of last three collection reports retrieved successfully',
+      detailedReports,
+    });
+  } catch (error) {
+    console.error('Error retrieving details of last three collection reports:', error);
+    return res.status(500).json({ success: false, message: 'Internal Server Error' });
+  }
+});
+
+
+
+
+
+
 
 module.exports = {
   createSuperAdmin,
   createUser, loginUserCtrl, loginAdmin, addRestrictionDate, getAllUsers, getaUser, deleteaUser,
   updatedUser, updateStatusUser, addMachineToUserLocation, updateMachineInUserLocation, updateMachineStatus,
   deleteMachineFromUser, getMachinesOfUser, getMachinebyId, getMachinesByLocationId, unableAdmin, blockedAdmin, unblockedAdmin,
-  addRepairToAdmin, getAllRepairs
+  addRepairToAdmin, getAllRepairs, getAllRecentCollectionReports
 }
