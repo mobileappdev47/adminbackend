@@ -1066,10 +1066,60 @@ const lastCollectionReport = asyncHandler(async (req, res) => {
 });
 
 
+// pending repairs 
+const getLastTwoPendingRepairsAllEmployees = asyncHandler(async (req, res) => {
+  const { userId } = req.params;
+
+  try {
+    // Find the user by ID
+    const user = await User.findById(userId)
+      .populate({
+        path: 'employees',
+        populate: {
+          path: 'newRepairs',
+          match: { statusOfRepair: 'Pending' }, // Filter by statusOfRepair: 'Pending'
+          options: { sort: { _id: -1 }, limit: 2 }, // Sort by createdAt in descending order, limit to 2
+          populate: {
+            path: 'location',
+            model: 'Location',
+            select: 'locationname _id',
+          },
+        },
+      })
+      .exec();
+
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    // Flatten and sort the repair reports across all employees
+    const allPendingRepairs = user.employees
+      .flatMap(employee => employee.newRepairs)
+      .filter(report => report.statusOfRepair === 'Pending')
+      .sort((a, b) => b.createdAt - a.createdAt)
+      .slice(0, 2);
+
+    // Map the repair reports and include the location field
+    const adjustedResponse = allPendingRepairs.map(report => ({
+      ...report.toObject({ getters: true }),
+      location: report.location ? report.location.locationname : null,
+    }));
+
+    return res.status(200).json({
+      success: true,
+      message: 'Last two pending repair reports from all employees retrieved successfully',
+      lastTwoPendingRepairsAllEmployees: adjustedResponse,
+    });
+  } catch (error) {
+    console.error('Error retrieving last two pending repair reports from all employees:', error);
+    return res.status(500).json({ success: false, message: 'Internal Server Error' });
+  }
+});
+
 
 module.exports = {
   addEmployeeToAdmin, loginEmployeeCtrl, getEmployeeById, updateEmployee,
   deleteEmployee, getAllEmployeesForUser, updateStatusOfEmployee, getAllUsersEmployees, getLocationOfEmployee, getAllMachinesForEmployee,
   addNewRepair, getAllRepairsReport,getLastTwoPendingRepairs,changeStatusOfRepairs, getAllServiceReports, addServiceReport, addCollectionReport, getAllCollectionReport, getRecentCollectionReport,
-  lastCollectionReport
+  lastCollectionReport, getLastTwoPendingRepairsAllEmployees
 }

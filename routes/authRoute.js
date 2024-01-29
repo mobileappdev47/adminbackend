@@ -26,6 +26,7 @@ const {
 } = require('../controllers/userCtrl');
 const { authMiddleware, isAdmin } = require('../middlerwares/authMiddleware');
 const { route } = require('./employeeRoute');
+const { getLastTwoPendingRepairsAllEmployees } = require('../controllers/employeeCtrl');
 const router = express.Router();
 
 router.post('/register',authMiddleware, isAdmin, createUser);
@@ -51,7 +52,7 @@ router.put('/unblock/:userId', authMiddleware, isAdmin, unblockedAdmin);
 
 router.put('/editstatus/:adminId', authMiddleware, isAdmin, updateStatusUser);
 router.get('/recent-collection/report/:userId',authMiddleware, getAllRecentCollectionReports)
-
+router.get('/pending-repairs/:userId', authMiddleware, getLastTwoPendingRepairsAllEmployees)
 // repair
 router.post('/addrepair/:userId', authMiddleware, addRepairToAdmin)
 router.get('/repairs/:userId', authMiddleware, getAllRepairs)

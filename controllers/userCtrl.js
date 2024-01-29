@@ -826,63 +826,45 @@ const getAllRepairs = asyncHandler(async (req, res) => {
 
 // recent collection report
 const getAllRecentCollectionReports = asyncHandler(async (req, res) => {
-  try {
-    // Extract the user ID from the request parameters
-    const { userId } = req.params;
+  const { userId } = req.params;
 
-    // Find the user and populate the associated employees
-    const user = await User.findById(userId).populate('employees');
+  try {
+    // Find the user by ID
+    const user = await User.findById(userId)
+      .populate({
+        path: 'employees',
+        populate: {
+          path: 'newCollectionReports',
+          options: { sort: { _id: -1 } },
+          populate: {
+            path: 'location',
+            model: 'Location',
+            select: 'locationname _id address numofmachines createdAt',
+          },
+        },
+      })
+      .exec();
 
     if (!user) {
       return res.status(404).json({ success: false, message: 'User not found' });
     }
 
-    // Extract the associated employees
-    const associatedEmployees = user.employees;
-
-    // Retrieve the last three collection reports across all employees with detailed information
-    const allRecentCollectionReports = await Employee.aggregate([
-      {
-        $match: { _id: { $in: associatedEmployees.map(employee => employee._id) } }
-      },
-      {
-        $unwind: '$newCollectionReports'
-      },
-      {
-        $sort: { 'newCollectionReports.createdAt': -1 }
-      },
-      {
-        $limit: 3
-      },
-      {
-        $group: {
-          _id: null,
-          lastThreeCollectionReports: { $push: '$newCollectionReports' }
-        }
-      }
-    ]);
-
-    if (!allRecentCollectionReports || allRecentCollectionReports.length === 0) {
-      return res.status(404).json({ success: false, message: 'No recent collection reports found' });
-    }
-
-    const lastThreeIds = allRecentCollectionReports[0].lastThreeCollectionReports.map(report => report._id);
-console.log(lastThreeIds);
-    // Retrieve the detailed information for each report using the IDs
-    const detailedReports = await CollectionReport.find({ _id: { $in: lastThreeIds } });
+    // Flatten and sort the collection reports across all employees
+    const allCollectionReports = user.employees
+      .flatMap(employee => employee.newCollectionReports)
+      .sort((a, b) => b.createdAt - a.createdAt)
+      .slice(0, 3);
 
     return res.status(200).json({
       success: true,
-      message: 'Details of last three collection reports retrieved successfully',
-      detailedReports,
+      message: 'Last three collection reports for all employees retrieved successfully',
+      allCollectionReports,
     });
   } catch (error) {
-    console.error('Error retrieving details of last three collection reports:', error);
+    console.error('Error retrieving last three collection reports:', error);
     return res.status(500).json({ success: false, message: 'Internal Server Error' });
   }
 });
-
-
 
 
 
