@@ -12,27 +12,50 @@ const machineSchema = new mongoose.Schema(
             // required: true,
             unique: true,
         },
-        initialNumber: {
-            type: String,
-            default: "$0"
+        inNumbers: {
+            previous: {
+                type: Number,
+                default: '$0',
+                required: true,
+            },
+            current: {
+                type: Number,
+                default: '$0',
+                required: true,
+            },
         },
-        currentNumber: {
-            type: String,
-            default: "$0"
+        outNumbers: {
+            previous: {
+                type: Number,
+                required: true,
+            },
+            current: {
+                type: Number,
+                required: true,
+            },
         },
-        gameName:{
+        total: {
             type: String,
         },
+        gameName: {
+            type: String,
+        },
+        location:{
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "Location",
+        },
+        image:[{
+            type: String 
+        }],
         activeMachineStatus: {
             type: String,
-            enum: ['Active', 'In Service'], 
-            default: 'Active', 
+            enum: ['Active', 'In Service'],
+            default: 'Active',
         },
         employees: [{
             type: mongoose.Schema.Types.ObjectId,
             ref: "Employee"
         }],
-        
     },
     {
         timestamps: true,

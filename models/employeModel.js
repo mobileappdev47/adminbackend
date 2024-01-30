@@ -50,6 +50,10 @@ var employeeSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: 'CollectionReport',
     }],
+    machines: [{
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Machine',
+    }],
     refreshToken: {
       type: String,
     }

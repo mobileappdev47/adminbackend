@@ -1,54 +1,18 @@
 const mongoose = require("mongoose");
 
 const collectionReportSchema = new mongoose.Schema({
+  employee: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Employee',
+  },
   location: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'Location', // Assuming 'Location' is your location model
-    required: true,
+    ref: 'Location',
   },
-  machineNumber: {
-    type: String,
-    required: true,
-  },
-  serialNumber: {
-    type: String,
-    required: true,
-  },
-  auditNumber: {
-    type: String,
-    required: true,
-  },
-  inNumbers: {
-    previous: {
-      type: Number,
-      default: '$0',
-      required: true,
-    },
-    current: {
-      type: Number,
-      default: '$0',
-      required: true,
-    },
-  },
-  outNumbers: {
-    previous: {
-      type: Number,
-      required: true,
-    },
-    current: {
-      type: Number,
-      required: true,
-    },
-  },
-  total: {
-    type: Number,
-    required: true,
-  },
-  image: [{
-    type: String, // Assuming you store the image URL or file path
-    required: true,
+  machines: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Machine',
   }],
-
 },
   {
     timestamps: true

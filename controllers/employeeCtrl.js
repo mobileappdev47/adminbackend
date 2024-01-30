@@ -831,46 +831,87 @@ const getAllServiceReports = asyncHandler(async (req, res) => {
 
 // add collection report
 const addCollectionReport = asyncHandler(async (req, res) => {
-  const { employeeId, locationId } = req.params; // Extract locationId from params
-  const {
-    machineNumber,
-    serialNumber,
-    auditNumber,
-    inNumbers: { previous: inPrevious, current: inCurrent },
-    outNumbers: { previous: outPrevious, current: outCurrent },
-    total,
-    image,
-  } = req.body;
+  const { employeeId, locationId } = req.params;
+  const { machines } = req.body;
 
   try {
-    // Find the employee by ID
+    const location = await Location.findById(locationId);
+
+    if (!location) {
+      return res.status(404).json({
+        success: false,
+        message: `Location not found for ID: ${locationId}`,
+      });
+    }
+
+    // Check if the employee is associated with the specified location
+    const isEmployeeInLocation = location.employees.includes(employeeId);
+
+    if (!isEmployeeInLocation) {
+      return res.status(403).json({
+        success: false,
+        message: 'Employee is not associated with the specified location',
+      });
+    }
+
     const employee = await Employee.findById(employeeId);
     if (!employee) {
       return res.status(404).json({ success: false, message: 'Employee not found' });
     }
 
-    // Create a new collection report
-    const newCollectionReport = new CollectionReport({
-      location: locationId, // set the location ID
-      machineNumber,
-      serialNumber,
-      auditNumber,
-      inNumbers: { previous: inPrevious, current: inCurrent },
-      outNumbers: { previous: outPrevious, current: outCurrent },
-      total,
-      image,
-    });
+    const collectionReport = {
+      employee: employeeId,
+      location: locationId,
+      machines: [],
+    };
 
-    // Save the collection report
-    await newCollectionReport.save();
+    for (const machineData of machines) {
+      const { machineId } = machineData;
 
-    // Update the employee with the new collection report
-    employee.newCollectionReports.push(newCollectionReport._id);
+      // Check if the machine exists and belongs to the specified location
+      const existingMachine = await Machine.findOne({
+        _id: machineId,
+      });
+
+      if (!existingMachine) {
+        return res.status(404).json({
+          success: false,
+          message: `Machine not found in the specified location for ID: ${machineId}`,
+        });
+      }
+
+      // Update the existing machine
+      existingMachine.machineNumber = machineData.machineNumber || existingMachine.machineNumber;
+      existingMachine.serialNumber = machineData.serialNumber || existingMachine.serialNumber;
+      existingMachine.auditNumber = machineData.auditNumber || existingMachine.auditNumber;
+      existingMachine.inNumbers.previous = machineData.inNumbers?.previous || existingMachine.inNumbers.previous;
+      existingMachine.inNumbers.current = machineData.inNumbers?.current || existingMachine.inNumbers.current;
+      existingMachine.outNumbers.previous = machineData.outNumbers?.previous || existingMachine.outNumbers.previous;
+      existingMachine.outNumbers.current = machineData.outNumbers?.current || existingMachine.outNumbers.current;
+      existingMachine.total = machineData.total || existingMachine.total;
+      existingMachine.image = machineData.image || existingMachine.image;
+      existingMachine.gameName = machineData.gameName || existingMachine.gameName;
+      existingMachine.location = locationId;
+
+      // Save the updated machine
+      await existingMachine.save();
+
+      // Add the updated machine to the collection report
+      collectionReport.machines.push({
+        machine: existingMachine._id,
+        // Other relevant machine details if needed
+      });
+
+      // Update the employee with the updated machine
+      employee.machines.push(existingMachine._id);
+    }
+
+    // Save the updated employee
     await employee.save();
 
     // Update the statusOfPayment in the associated location to true
     const locationToUpdate = await Location.findOneAndUpdate(
-      { _id: locationId }, // use the location ID from params
+      { _id: locationId },
       { $set: { statusOfPayment: true } },
       { new: true }
     );
@@ -880,110 +921,60 @@ const addCollectionReport = asyncHandler(async (req, res) => {
       return res.status(404).json({ success: false, message: 'Location not found' });
     }
 
-    return res.status(201).json({
+    // Find or create a CollectionReport document and update it
+    const filter = { employee: employeeId, location: locationId };
+    const update = {
+      $set: {
+        machines: collectionReport.machines.map(item => item.machine),
+      },
+    };
+    const options = { upsert: true, new: true };
+
+    const updatedCollectionReport = await CollectionReport.findOneAndUpdate(filter, update, options);
+
+    // Return the single collection report
+    return res.status(200).json({
       success: true,
-      message: 'New collection report created for the employee',
-      data: { employee, newCollectionReport, updatedLocation: locationToUpdate },
+      message: 'Collection report updated for the employee',
+      data: { collectionReport, updatedLocation: locationToUpdate, updatedCollectionReport },
     });
   } catch (error) {
-    console.error('Error creating new collection report:', error);
+    console.error('Error updating collection report:', error);
     return res.status(500).json({ success: false, message: 'Internal Server Error' });
   }
 });
 
 
+
+
 // get all collection report 
 const getAllCollectionReport = asyncHandler(async (req, res) => {
   const { employeeId } = req.params;
-  const { page, limit, searchLocation } = req.query;
 
   try {
-    // Find the employee by ID and populate the 'newCollectionReports' field with 'location'
-    const employee = await Employee.findById(employeeId)
-      .select('firstname lastname')
+    // Retrieve collection reports for the specified employee and populate the 'machines', 'location' fields
+    const collectionReports = await CollectionReport.find({ employee: employeeId })
       .populate({
-        path: 'newCollectionReports',
-        populate: {
-          path: 'location',
-          model: 'Location',
-          select: 'locationname _id address numofmachines createdAt',
-        },
+        path: 'machines',
+        model: 'Machine',
       })
-      .exec();
-
-    if (!employee) {
-      return res.status(404).json({ success: false, message: 'Employee not found' });
-    }
-
-    let collectionReports = employee.newCollectionReports;
-
-    // If searchLocation is provided, filter by locationname
-    if (searchLocation) {
-      const searchRegex = new RegExp(searchLocation, 'i');
-      collectionReports = collectionReports.filter(report =>
-        report.location && report.location.locationname.match(searchRegex)
-      );
-    }
-
-    // Group reports by location ID
-    const groupedReports = {};
-    collectionReports.forEach(report => {
-      // Check if report.location is not null before accessing its properties
-      if (report.location && report.location._id) {
-        const locationId = report.location._id.toString();
-        if (!groupedReports[locationId]) {
-          groupedReports[locationId] = {
-            location: report.location,
-            employee: { firstname: employee.firstname, lastname: employee.lastname },
-            collectionReports: [],
-          };
-        }
-        groupedReports[locationId].collectionReports.push(report);
-      }
-    });
-
-    // If page and limit are provided, paginate the result
-    if (page && limit) {
-      const totalCount = Object.keys(groupedReports).length;
-      const totalPages = Math.ceil(totalCount / limit);
-      const currentPage = parseInt(page);
-
-      const skip = (currentPage - 1) * limit;
-      const paginatedGroupedReports = Object.values(groupedReports).slice(skip, skip + limit);
-
-      // Adjust the response structure to nest collectionReports under location
-      const adjustedResponse = paginatedGroupedReports.map(groupedReport => ({
-        location: groupedReport.location,
-        employee: groupedReport.employee,
-        collectionReports: groupedReport.collectionReports,
-      }));
-
-      return res.status(200).json({
-        success: true,
-        message: 'Collection reports retrieved successfully',
-        groupedReports: adjustedResponse,
-        totalPages,
-        currentPage,
+      .populate({
+        path: 'location',
+        model: 'Location',
+        select: '_id locationname numofmachines'
       });
-    }
-
-    // If page and limit are not provided, return all collection reports without pagination
-    const adjustedResponse = Object.values(groupedReports).map(groupedReport => ({
-      location: groupedReport.location,
-      employee: groupedReport.employee,
-      collectionReports: groupedReport.collectionReports,
-    }));
 
     return res.status(200).json({
       success: true,
-      message: 'Collection reports retrieved successfully',
-      groupedReports: adjustedResponse,
+      message: 'Collection reports retrieved successfully for the specified employee',
+      data: collectionReports,
     });
   } catch (error) {
     console.error('Error retrieving collection reports:', error);
     return res.status(500).json({ success: false, message: 'Internal Server Error' });
   }
 });
+
 
 
 // recent collection
