@@ -23,10 +23,10 @@ const {
     addRepairToAdmin,
     getAllRepairs,
     getAllRecentCollectionReports,
+    getLastTwoPendingRepairsAllEmployees
 } = require('../controllers/userCtrl');
 const { authMiddleware, isAdmin } = require('../middlerwares/authMiddleware');
-const { route } = require('./employeeRoute');
-const { getLastTwoPendingRepairsAllEmployees } = require('../controllers/employeeCtrl');
+
 const router = express.Router();
 
 router.post('/register',authMiddleware, isAdmin, createUser);
@@ -39,7 +39,6 @@ router.post('/login', loginUserCtrl);
 router.post('/admin-login', loginAdmin);
 
 router.get('/alluser', authMiddleware, isAdmin, getAllUsers);
-
 
 router.get('/:id', authMiddleware, getaUser);
 

@@ -633,6 +633,7 @@ const getAllRepairsReport = asyncHandler(async (req, res) => {
   }
 });
 
+
 // pending repairs
 const getLastTwoPendingRepairs = asyncHandler(async (req, res) => {
   const { employeeId } = req.params;
@@ -678,7 +679,7 @@ const getLastTwoPendingRepairs = asyncHandler(async (req, res) => {
 
 
 // change status of repairs
-const changeStatusOfRepairs = asyncHandler(async(req, res) => {
+const changeStatusOfRepairs = asyncHandler(async (req, res) => {
   const { repairId } = req.params;
   const { newStatus } = req.body; // Assuming you send the new status in the request body
 
@@ -927,15 +928,18 @@ const getAllCollectionReport = asyncHandler(async (req, res) => {
     // Group reports by location ID
     const groupedReports = {};
     collectionReports.forEach(report => {
-      const locationId = report.location._id.toString();
-      if (!groupedReports[locationId]) {
-        groupedReports[locationId] = {
-          location: report.location,
-          employee: { firstname: employee.firstname, lastname: employee.lastname },
-          collectionReports: [],
-        };
+      // Check if report.location is not null before accessing its properties
+      if (report.location && report.location._id) {
+        const locationId = report.location._id.toString();
+        if (!groupedReports[locationId]) {
+          groupedReports[locationId] = {
+            location: report.location,
+            employee: { firstname: employee.firstname, lastname: employee.lastname },
+            collectionReports: [],
+          };
+        }
+        groupedReports[locationId].collectionReports.push(report);
       }
-      groupedReports[locationId].collectionReports.push(report);
     });
 
     // If page and limit are provided, paginate the result
@@ -1017,9 +1021,6 @@ const getRecentCollectionReport = asyncHandler(async (req, res) => {
 });
 
 
-
-
-
 // last collection 
 const lastCollectionReport = asyncHandler(async (req, res) => {
   const { employeeId } = req.params;
@@ -1048,10 +1049,10 @@ const lastCollectionReport = asyncHandler(async (req, res) => {
     // Adjust the response structure to include location details
     const lastCollection = lastCollectionReport
       ? {
-          location: lastCollectionReport.location,
-          employee: { firstname: employee.firstname, lastname: employee.lastname },
-          lastCollectionReport: lastCollectionReport,
-        }
+        location: lastCollectionReport.location,
+        employee: { firstname: employee.firstname, lastname: employee.lastname },
+        lastCollectionReport: lastCollectionReport,
+      }
       : null;
 
     return res.status(200).json({
@@ -1066,60 +1067,12 @@ const lastCollectionReport = asyncHandler(async (req, res) => {
 });
 
 
-// pending repairs 
-const getLastTwoPendingRepairsAllEmployees = asyncHandler(async (req, res) => {
-  const { userId } = req.params;
 
-  try {
-    // Find the user by ID
-    const user = await User.findById(userId)
-      .populate({
-        path: 'employees',
-        populate: {
-          path: 'newRepairs',
-          match: { statusOfRepair: 'Pending' }, // Filter by statusOfRepair: 'Pending'
-          options: { sort: { _id: -1 }, limit: 2 }, // Sort by createdAt in descending order, limit to 2
-          populate: {
-            path: 'location',
-            model: 'Location',
-            select: 'locationname _id',
-          },
-        },
-      })
-      .exec();
-
-    if (!user) {
-      return res.status(404).json({ success: false, message: 'User not found' });
-    }
-
-    // Flatten and sort the repair reports across all employees
-    const allPendingRepairs = user.employees
-      .flatMap(employee => employee.newRepairs)
-      .filter(report => report.statusOfRepair === 'Pending')
-      .sort((a, b) => b.createdAt - a.createdAt)
-      .slice(0, 2);
-
-    // Map the repair reports and include the location field
-    const adjustedResponse = allPendingRepairs.map(report => ({
-      ...report.toObject({ getters: true }),
-      location: report.location ? report.location.locationname : null,
-    }));
-
-    return res.status(200).json({
-      success: true,
-      message: 'Last two pending repair reports from all employees retrieved successfully',
-      lastTwoPendingRepairsAllEmployees: adjustedResponse,
-    });
-  } catch (error) {
-    console.error('Error retrieving last two pending repair reports from all employees:', error);
-    return res.status(500).json({ success: false, message: 'Internal Server Error' });
-  }
-});
 
 
 module.exports = {
   addEmployeeToAdmin, loginEmployeeCtrl, getEmployeeById, updateEmployee,
   deleteEmployee, getAllEmployeesForUser, updateStatusOfEmployee, getAllUsersEmployees, getLocationOfEmployee, getAllMachinesForEmployee,
-  addNewRepair, getAllRepairsReport,getLastTwoPendingRepairs,changeStatusOfRepairs, getAllServiceReports, addServiceReport, addCollectionReport, getAllCollectionReport, getRecentCollectionReport,
-  lastCollectionReport, getLastTwoPendingRepairsAllEmployees
+  addNewRepair, getAllRepairsReport, getLastTwoPendingRepairs, changeStatusOfRepairs, getAllServiceReports, addServiceReport, addCollectionReport, getAllCollectionReport, getRecentCollectionReport,
+  lastCollectionReport
 }
