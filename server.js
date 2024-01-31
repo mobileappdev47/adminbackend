@@ -1,14 +1,14 @@
 const bodyParser = require('body-parser');
 const express = require('express');
-const dbConnect = require('./config/dbConnect');
+const dbConnect = require('./config/dbConnect.js');
 const app = express();
 const cors = require('cors');
 const dotenv = require('dotenv').config();
 const PORT = process.env.PORT || 4000;
 const authRouter = require("./routes/authRoute.js")
-const locationRouter = require('./routes/locationRoute')
-const employeeRouter = require('./routes/employeeRoute')
-const { notFound, errorHandler } = require('./middlerwares/errorHandlers');
+const locationRouter = require('./routes/locationRoute.js')
+const employeeRouter = require('./routes/employeeRoute.js')
+const { notFound, errorHandler } = require('./middlerwares/errorHandlers.js');
 const cookieParser = require('cookie-parser');
 dbConnect();
 
