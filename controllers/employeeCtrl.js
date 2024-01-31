@@ -385,7 +385,7 @@ const getLocationOfEmployee = asyncHandler(async (req, res) => {
       .populate({
         path: 'admin',
         model: 'User',
-        select: 'firstname lastname _id',
+        select: 'firstname lastname _id ',
       })
       .populate({
         path: 'machines',
@@ -978,33 +978,36 @@ const getAllCollectionReport = asyncHandler(async (req, res) => {
 // recent collection
 const getRecentCollectionReport = asyncHandler(async (req, res) => {
   const { employeeId } = req.params;
-  try {
-    // Find the employee by ID and retrieve the last three collection reports
-    const employee = await Employee.findById(employeeId)
-      .populate({
-        path: 'newCollectionReports',
-        options: { limit: 3, sort: { _id: -1 } },
-        populate: {
-          path: 'location',
-          model: 'Location',
-          select: 'locationname _id address numofmachines createdAt',
-        },
-      })
-      .exec();
 
-    if (!employee) {
-      return res.status(404).json({ success: false, message: 'Employee not found' });
+  try {
+    // Find the last updated collection report for the specified employee
+    const lastUpdatedCollectionReport = await CollectionReport
+      .findOne({ employee: employeeId })
+      .sort({ updatedAt: -1 })
+      .populate({
+        path: 'machines',
+        model: 'Machine', // Adjust the model name as per your schema
+      })
+      .populate({
+        path: 'location',
+        model: 'Location', // Adjust the model name as per your schema
+        select: '_id locationname address numofmachines'
+      })
+
+    if (!lastUpdatedCollectionReport) {
+      return res.status(404).json({
+        success: false,
+        message: 'No collection report found for the specified employee',
+      });
     }
-    // Extract the last three collection reports
-    const lastThreeCollectionReports = employee.newCollectionReports;
 
     return res.status(200).json({
       success: true,
-      message: 'Last three collection reports retrieved successfully',
-      lastThreeCollectionReports,
+      message: 'Last updated collection report retrieved successfully',
+      data: lastUpdatedCollectionReport,
     });
   } catch (error) {
-    console.error('Error retrieving last three collection reports:', error);
+    console.error('Error fetching last updated collection report:', error);
     return res.status(500).json({ success: false, message: 'Internal Server Error' });
   }
 });
