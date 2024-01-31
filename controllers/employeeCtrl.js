@@ -946,7 +946,6 @@ const addCollectionReport = asyncHandler(async (req, res) => {
 
 
 
-
 // get all collection report 
 const getAllCollectionReport = asyncHandler(async (req, res) => {
   const { employeeId } = req.params;
