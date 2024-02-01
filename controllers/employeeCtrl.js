@@ -636,37 +636,24 @@ const getLastTwoPendingRepairs = asyncHandler(async (req, res) => {
   const { employeeId } = req.params;
 
   try {
-    // Find the employee by ID and populate the 'newRepairs' field
-    const employee = await Employee.findById(employeeId)
+    // Retrieve the last two pending repair reports for the specified employee
+    const lastTwoPendingRepairs = await Repair.find({ employee: employeeId, machines: { $ne: [] } })
+      .sort({ _id: -1 }) // Sort by _id in descending order to get the latest reports first
+      .limit(2)
       .populate({
-        path: 'newRepairs',
-        match: { statusOfRepair: 'Pending' }, // Filter by statusOfRepair: 'Pending'
-        options: { sort: { _id: -1 }, limit: 2 }, // Sort by createdAt in descending order, limit to 2
-        populate: {
-          path: 'location',
-          model: 'Location',
-          select: 'locationname _id',
-        },
+        path: 'machines',
+        model: 'Machine',
       })
-      .exec();
-
-    if (!employee) {
-      return res.status(404).json({ success: false, message: 'Employee not found' });
-    }
-
-    // Retrieve the last two pending repair reports
-    const lastTwoPendingRepairs = employee.newRepairs;
-
-    // Map the repair reports and include the location field
-    const adjustedResponse = lastTwoPendingRepairs.map(report => ({
-      ...report.toObject({ getters: true }),
-      location: report.location ? report.location.locationname : null,
-    }));
+      .populate({
+        path: 'location',
+        model: 'Location',
+        select: '_id locationname numofmachines'
+      });
 
     return res.status(200).json({
       success: true,
-      message: 'Last two pending repair reports retrieved successfully',
-      lastTwoPendingRepairs: adjustedResponse,
+      message: 'Last two pending repair reports retrieved successfully for the specified employee',
+      data: lastTwoPendingRepairs,
     });
   } catch (error) {
     console.error('Error retrieving last two pending repair reports:', error);
