@@ -15,12 +15,12 @@ const machineSchema = new mongoose.Schema(
         inNumbers: {
             previous: {
                 type: Number,
-                default: '$0',
+                default: '0',
                 required: true,
             },
             current: {
                 type: Number,
-                default: '$0',
+                default: '0',
                 required: true,
             },
         },
@@ -40,13 +40,33 @@ const machineSchema = new mongoose.Schema(
         gameName: {
             type: String,
         },
-        location:{
+        location: {
             type: mongoose.Schema.Types.ObjectId,
             ref: "Location",
         },
-        image:[{
-            type: String 
+        image: [{
+            type: String
         }],
+        date: {
+            type: Date
+        },
+        time: {
+            type: String,
+        },
+        reporterName: {
+            type: String,
+        },
+        statusOfRepair: {
+            type: String,
+            enum: ['Done', 'Pending', 'Running'],
+            default: 'Pending', // Set a default status if needed
+        },
+        imageOfRepair: [{
+            type: String
+        }],
+        issue: {
+            type: String
+        },
         activeMachineStatus: {
             type: String,
             enum: ['Active', 'In Service'],

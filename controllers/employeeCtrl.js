@@ -496,135 +496,133 @@ const getAllMachinesForEmployee = asyncHandler(async (req, res) => {
 
 // add new repair
 const addNewRepair = asyncHandler(async (req, res) => {
-  const { employeeId } = req.params;
-  const {
-    machineNumber,
-    serialNumber,
-    auditNumber,
-    date,
-    time,
-    reporterName,
-    issue,
-    image,
-    location
-  } = req.body;
+  const { employeeId, locationId, machineId } = req.params;
 
   try {
-    // Validate if location is a valid ObjectId
-    if (location && !mongoose.Types.ObjectId.isValid(location)) {
-      return res.status(400).json({ success: false, message: 'Invalid location ID' });
+    const location = await Location.findById(locationId);
+
+    if (!location) {
+      return res.status(404).json({
+        success: false,
+        message: `Location not found for ID: ${locationId}`,
+      });
     }
 
-    // Find the employee by ID
+    // Check if the employee is associated with the specified location
+    const isEmployeeInLocation = location.employees.includes(employeeId);
+
+    if (!isEmployeeInLocation) {
+      return res.status(403).json({
+        success: false,
+        message: 'Employee is not associated with the specified location',
+      });
+    }
+
     const employee = await Employee.findById(employeeId);
     if (!employee) {
       return res.status(404).json({ success: false, message: 'Employee not found' });
     }
 
-    // If location is provided, check if it exists
-    let locationDocument;
-    if (location) {
-      locationDocument = await Location.findById(location);
-      if (!locationDocument) {
-        return res.status(404).json({ success: false, message: 'Location not found' });
-      }
+    // Check if the machine exists and belongs to the specified location
+    const existingMachine = await Machine.findOne({
+      _id: machineId,
+    });
+
+    if (!existingMachine) {
+      return res.status(404).json({
+        success: false,
+        message: `Machine not found in the specified location for ID: ${machineId}`,
+      });
     }
 
-    // Create a new repair report with the location ID
-    const newRepairs = new Repair({
-      location: locationDocument ? locationDocument._id : undefined,
-      machineNumber,
-      serialNumber,
-      auditNumber,
-      date,
-      time,
-      reporterName,
-      issue,
-      image,
-    });
+    // Update the existing machine
+    existingMachine.date = req.body.date || existingMachine.date;
+    existingMachine.time = req.body.time || existingMachine.time;
+    existingMachine.reporterName = req.body.reporterName || existingMachine.reporterName;
+    existingMachine.issue = req.body.issue || existingMachine.issue;
+    existingMachine.imageOfRepair = req.body.imageOfRepair || existingMachine.imageOfRepair;
+    existingMachine.location = locationId;
 
-    // Save the repair report
-    await newRepairs.save();
+    // Save the updated machine
+    await existingMachine.save();
 
-    // Update the employee with the new repair report
-    employee.newRepairs.push(newRepairs._id);
+    // Update the employee with the updated machine
+    employee.machines.push(existingMachine._id);
+
+    // Save the updated employee
     await employee.save();
 
-    return res.status(201).json({
+    // Update the statusOfPayment in the associated location to true
+    const locationToUpdate = await Location.findOneAndUpdate(
+      { _id: locationId },
+      { $set: { statusOfPayment: true } },
+      { new: true }
+    );
+
+    if (!locationToUpdate) {
+      console.error('Location not found for the given ID:', locationId);
+      return res.status(404).json({ success: false, message: 'Location not found' });
+    }
+
+    // Find or create a Repair document and update it
+    const filter = { location: locationId };
+    const update = {
+      $addToSet: { machines: existingMachine._id },
+    };
+    const options = { upsert: true, new: true };
+
+    const updatedRepairReport = await Repair.findOneAndUpdate(
+      { employee: employeeId, location: locationId },
+      update,
+      options
+    );
+
+    if (!updatedRepairReport) {
+      // Create a new Repair document if it doesn't exist for the employee and location
+      const newRepairReport = new Repair({
+        employee: employeeId,
+        location: locationId,
+        machines: [existingMachine._id],
+      });
+      await newRepairReport.save();
+    }
+
+    // Return the single repair report
+    return res.status(200).json({
       success: true,
-      message: 'New repair report created for the employee',
-      newRepairs,
+      message: 'Repair report updated for the location',
+      data: { updatedLocation: locationToUpdate, updatedRepairReport },
     });
   } catch (error) {
-    console.error('Error creating new repair report:', error);
+    console.error('Error updating repair report:', error);
     return res.status(500).json({ success: false, message: 'Internal Server Error' });
   }
 });
 
 
+
+
 // get repairs report of employee
 const getAllRepairsReport = asyncHandler(async (req, res) => {
   const { employeeId } = req.params;
-  const { page, limit, searchRepair } = req.query;
 
   try {
-    // Find the employee by ID and populate the 'newRepairs' field
-    const employee = await Employee.findById(employeeId).populate({
-      path: 'newRepairs',
-      populate: {
+    // Retrieve repair reports for the specified employee and populate the 'machines', 'location' fields
+    const repairReports = await Repair.find({ employee: employeeId })
+      .populate({
+        path: 'machines',
+        model: 'Machine',
+      })
+      .populate({
         path: 'location',
         model: 'Location',
-        select: 'locationname _id',
-      },
-    }).exec();
-
-    if (!employee) {
-      return res.status(404).json({ success: false, message: 'Employee not found' });
-    }
-
-    // Map the repair reports and include the location field
-    const repairReports = employee.newRepairs.map(report => ({
-      ...report.toObject({ getters: true }),
-      location: report.location ? report.location.locationname : null,
-    }));
-
-    // Apply search filter if searchLocation is provided
-    let filteredRepairReports = repairReports;
-    if (searchRepair) {
-      const searchRegex = new RegExp(searchRepair, 'i');
-      filteredRepairReports = repairReports.filter(report =>
-        report.location && report.location.match(searchRegex)
-      );
-    }
-
-    if (!filteredRepairReports || filteredRepairReports.length === 0) {
-      // Return 404 status code for not found
-      return res.status(200).json({ success: true, filteredRepairReports });
-    }
-
-    // Initialize total pages
-    let totalPages;
-
-    // Apply pagination logic if needed
-    let paginatedRepairReports;
-    if (page && limit) {
-      const totalCount = filteredRepairReports.length;
-      totalPages = Math.ceil(totalCount / limit);
-      const currentPage = parseInt(page);
-
-      const skip = (currentPage - 1) * limit;
-      paginatedRepairReports = filteredRepairReports.slice(skip, skip + limit);
-    } else {
-      // If page and limit are not provided, return all repair reports
-      paginatedRepairReports = filteredRepairReports;
-    }
+        select: '_id locationname numofmachines'
+      });
 
     return res.status(200).json({
       success: true,
-      message: 'Repair reports retrieved successfully',
-      repairReports: paginatedRepairReports,
-      totalPages,
-      currentPage: parseInt(page) || 1,
+      message: 'Repair reports retrieved successfully for the specified employee',
+      data: repairReports,
     });
   } catch (error) {
     console.error('Error retrieving repair reports:', error);
@@ -942,7 +940,6 @@ const addCollectionReport = asyncHandler(async (req, res) => {
     return res.status(500).json({ success: false, message: 'Internal Server Error' });
   }
 });
-
 
 
 // get all collection report 

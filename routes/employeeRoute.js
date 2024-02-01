@@ -36,7 +36,7 @@ router.delete('/delete/:userId/:employeeId', authMiddleware, deleteEmployee)
 // add new report 
 router.get('/employees/:employeeId/repairs', employeeMiddleware, getAllRepairsReport)
 router.get('/pending/:employeeId/repairs', employeeMiddleware, getLastTwoPendingRepairs)
-router.post('/repair/:employeeId', employeeMiddleware, addNewRepair)
+router.put('/repair/:locationId/:machineId/:employeeId', employeeMiddleware, addNewRepair)
 router.post('/changestatus/:repairId', employeeMiddleware, changeStatusOfRepairs)
 
 
