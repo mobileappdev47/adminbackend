@@ -56,7 +56,11 @@ var employeeSchema = new mongoose.Schema(
     }],
     refreshToken: {
       type: String,
-    }
+    },
+    passwordChangedAt: Date,
+    passwordResetToken: String,
+    passwordResetExpires: Date,
+    passwordResetOTP: String
   },
   {
     timestamps: true,

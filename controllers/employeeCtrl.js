@@ -10,6 +10,7 @@ const ServiceReport = require('../models/serviceReportModel')
 const CollectionReport = require('../models/collectionModel')
 const Machine = require('../models/machineModel')
 const mongoose = require('mongoose')
+const bcrypt = require('bcrypt')
 
 // add employee to admin
 const addEmployeeToAdmin = asyncHandler(async (req, res) => {
@@ -117,6 +118,144 @@ const loginEmployeeCtrl = asyncHandler(async (req, res) => {
   }
 });
 
+// forgot password 
+const sendOtp = asyncHandler(async (req, res) => {
+  const { email } = req.body;
+  const employee = await Employee.findOne({ email });
+
+  // Check if the user with the provided email exists
+  if (!employee) {
+      return res.status(404).json({
+          success: false,
+          code: 404,
+          message: 'User not found with this email',
+      });
+  }
+
+  try {
+      // Generate a secure 6-digit OTP
+      const otp = Math.floor(100000 + Math.random() * 900000);
+
+      // Save the securely hashed OTP in the user document
+      const hashedOTP = await bcrypt.hash(otp.toString(), 10);
+      employee.passwordResetOTP = hashedOTP;
+      await employee.save();
+
+      // Construct the email content with a user-friendly message
+      const data = {
+          to: email,
+          text: `Hello ${employee.firstname},\n\nYour OTP for password reset is: ${otp}\n\nThank you.`,
+          subject: 'Forgot Password OTP',
+      };
+
+      // Import the sendEmail function from the file where you have defined it
+      const sendEmail = require('../utils/email');
+      sendEmail(data);
+
+      // Return user details in the response
+      res.json({
+          success: true,
+          code: 200,
+          message: 'OTP sent successfully',
+          user: {
+              _id: employee._id,
+              firstname: employee.firstname,
+              lastname: employee.lastname,
+              email: employee.email,
+          },
+      });
+  } catch (error) {
+      console.error('Error in sendOtp:', error);
+      if (error.name === 'ValidationError') {
+          return res.status(400).json({
+              success: false,
+              code: 400,
+              message: 'Validation error',
+              errors: error.errors,
+          });
+      } else {
+          res.status(500).json({
+              success: false,
+              code: 500,
+              message: 'Internal Server Error',
+              error: error.message,
+          });
+      }
+  }
+});
+
+
+// verify otp
+const verifyOtp = asyncHandler(async (req, res) => {
+  const { otp } = req.body;
+  const employeeId = req.params.employeeId;
+
+  const employee = await Employee.findById(employeeId);
+  if (!employee) {
+      throw new Error(" Employee not found");
+  }
+
+  try {
+      // Compare the provided OTP with the hashed OTP in the user document
+      const isMatch = await bcrypt.compare(otp.toString(), employee.passwordResetOTP);
+
+      if (!isMatch) {
+          throw new Error("Invalid OTP");
+      }
+
+      res.json({
+          success: true,
+          code: 200,
+          message: "OTP verified successfully",
+      });
+  } catch (error) {
+      console.error('Error in verifyOtp:', error);
+      res.status(500).json({
+          success: false,
+          code: 500,
+          message: "Internal Server Error",
+          error: error.message,
+      });
+  }
+});
+
+
+// reset password
+const updatePassword = asyncHandler(async (req, res) => {
+  const { employeeId } = req.params;
+
+  if (!employeeId) {
+      return res.status(400).json({ success: false, code: 400, error: 'Employee ID is required' });
+  }
+
+  try {
+      if (!req.body.password) {
+          return res.status(400).json({ success: false, code: 400, error: 'Password is required' });
+      }
+
+      const salt = await bcrypt.genSaltSync(10);
+      const hashedPassword = await bcrypt.hash(req.body.password, salt);
+
+      const updatedEmployee = await Employee.findByIdAndUpdate(
+        employeeId,
+          {
+              $set: {
+                  password: hashedPassword,
+              },
+          },
+          { new: true }
+      );
+
+      if (!updatedEmployee) {
+          return res.status(404).json({ success: false, code: 404, error: 'Employee not found' });
+      }
+
+      res.status(200).json({ success: true, code: 200, data: updatedEmployee });
+  } catch (error) {
+      console.error(error);
+      res.status(500).json({ success: false, code: 500, error: 'Internal Server Error' });
+  }
+});
 
 // get Employee by id
 const getEmployeeById = asyncHandler(async (req, res) => {
@@ -546,9 +685,6 @@ const addNewRepair = asyncHandler(async (req, res) => {
     // Save the updated machine
     await existingMachine.save();
 
-    // Update the employee with the updated machine
-    employee.machines.push(existingMachine._id);
-
     // Save the updated employee
     await employee.save();
 
@@ -885,9 +1021,6 @@ const addCollectionReport = asyncHandler(async (req, res) => {
         machine: existingMachine._id,
         // Other relevant machine details if needed
       });
-
-      // Update the employee with the updated machine
-      employee.machines.push(existingMachine._id);
     }
 
     // Save the updated employee
@@ -1047,7 +1180,7 @@ const lastCollectionReport = asyncHandler(async (req, res) => {
 
 
 module.exports = {
-  addEmployeeToAdmin, loginEmployeeCtrl, getEmployeeById, updateEmployee,
+  addEmployeeToAdmin, loginEmployeeCtrl,sendOtp, verifyOtp, updatePassword, getEmployeeById, updateEmployee,
   deleteEmployee, getAllEmployeesForUser, updateStatusOfEmployee, getAllUsersEmployees, getLocationOfEmployee, getAllMachinesForEmployee,
   addNewRepair, getAllRepairsReport, getLastTwoPendingRepairs, changeStatusOfRepairs, getAllServiceReports, addServiceReport, addCollectionReport, getAllCollectionReport, getRecentCollectionReport,
   lastCollectionReport

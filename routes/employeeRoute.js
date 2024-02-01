@@ -15,7 +15,10 @@ const { addEmployeeToAdmin, loginEmployeeCtrl, getEmployeeById,
     getRecentCollectionReport,
     lastCollectionReport,
     getLastTwoPendingRepairs,
-    changeStatusOfRepairs
+    changeStatusOfRepairs,
+    sendOtp,
+    verifyOtp,
+    updatePassword
 } = require('../controllers/employeeCtrl');
 
 const router = express.Router();
@@ -32,6 +35,10 @@ router.get('/:userId/:employeeId', authMiddleware, getEmployeeById)
 router.put('/edit-employee/:employeeId', employeeMiddleware, updateEmployee)
 router.put('/employeestatus/:userId/:employeeId', authMiddleware, updateStatusOfEmployee)
 router.delete('/delete/:userId/:employeeId', authMiddleware, deleteEmployee)
+
+router.post('/forgot-password', sendOtp)
+router.post('/verify-otp/:employeeId', verifyOtp)
+router.put('/reset-password/:employeeId', updatePassword)
 
 // add new report 
 router.get('/employees/:employeeId/repairs', employeeMiddleware, getAllRepairsReport)
