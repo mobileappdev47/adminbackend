@@ -186,14 +186,101 @@ const getLocationbyId = asyncHandler(async (req, res) => {
 })
 
 // all locations of user
+// const getAllLocationsForUser = asyncHandler(async (req, res) => {
+//   const { userId } = req.params;
+//   const { searchQuery, page, limit, statusofpayment } = req.query;
+
+//   try {
+//     const user = await User.findById(userId).populate({
+//       path: 'location',
+//       select: 'locationname address percentage machines createdAt updatedAt employees admin activeStatus statusOfPayment',
+//       populate: [
+//         {
+//           path: 'machines',
+//           model: 'Machine',
+//           select: '_id machineNumber serialNumber',
+//         },
+//         {
+//           path: 'employees',
+//           model: 'Employee',
+//           select: 'firstname lastname',
+//         },
+//         {
+//           path: 'admin',
+//           model: 'User',
+//           select: 'firstname lastname _id',
+//         },
+//       ],
+//     });
+
+//     if (!user) {
+//       return res.status(404).json({ message: 'User not found' });
+//     }
+
+//     let locations = user.location;
+
+//     // Filter locations based on statusofpayment
+//     if (statusofpayment !== undefined) {
+//       const statusFilter = statusofpayment.toLowerCase() === 'true'; // Assuming statusofpayment is a string 'true' or 'false'
+//       locations = locations.filter(location => location.statusOfPayment === statusFilter);
+//     }
+
+//     locations = await Promise.all(locations.map(async location => {
+//       const numofmachines = location.machines.length;
+//       return { ...location.toObject(), numofmachines };
+//     }));
+
+//     if (searchQuery) {
+//       const lowerCaseSearchQuery = searchQuery.toLowerCase();
+
+//       // If statusofpayment is provided, filter locations before searching
+//       if (statusofpayment !== undefined) {
+//         locations = locations.filter(location =>
+//           location.locationname.toLowerCase().includes(lowerCaseSearchQuery)
+//         );
+//       } else {
+//         // If statusofpayment is not provided, search across all locations
+//         locations = locations.filter(location =>
+//           location.locationname.toLowerCase().includes(lowerCaseSearchQuery)
+//         );
+//       }
+//     }
+
+//     let paginatedLocations;
+
+//     if (page && limit) {
+//       const totalCount = locations.length;
+//       const totalPages = Math.ceil(totalCount / limit);
+//       const currentPage = parseInt(page);
+
+//       const skip = (currentPage - 1) * limit;
+
+//       paginatedLocations = locations.slice(skip, skip + limit);
+//       res.json({ locations: paginatedLocations, totalPages, currentPage });
+//     } else {
+//       res.json({ locations, totalCount: locations.length });
+//     }
+//   } catch (error) {
+//     res.status(500).json({ error: error.message });
+//   }
+// });
 const getAllLocationsForUser = asyncHandler(async (req, res) => {
   const { userId } = req.params;
-  const { searchQuery, page, limit } = req.query;
+  const { page, limit } = req.query;
+  let { statusofpayment, searchQuery } = req.query;
 
   try {
+    // Load stored filter criteria from request headers
+    const storedStatusOfPayment = req.headers['x-statusofpayment'];
+    const storedSearchQuery = req.headers['x-searchquery'];
+
+    // Use stored values if not provided in the request
+    statusofpayment = statusofpayment !== undefined ? statusofpayment : storedStatusOfPayment;
+    searchQuery = searchQuery !== undefined ? searchQuery : storedSearchQuery;
+
     const user = await User.findById(userId).populate({
       path: 'location',
-      select: 'locationname address percentage machines createdAt updatedAt employees admin activeStatus',
+      select: 'locationname address percentage machines createdAt updatedAt employees admin activeStatus statusOfPayment',
       populate: [
         {
           path: 'machines',
@@ -219,20 +306,31 @@ const getAllLocationsForUser = asyncHandler(async (req, res) => {
 
     let locations = user.location;
 
+    // Filter locations based on statusofpayment
+    if (statusofpayment !== undefined) {
+      const statusFilter = statusofpayment.toLowerCase() === 'true'; // Assuming statusofpayment is a string 'true' or 'false'
+      locations = locations.filter(location => location.statusOfPayment === statusFilter);
+    }
+
     locations = await Promise.all(locations.map(async location => {
       const numofmachines = location.machines.length;
       return { ...location.toObject(), numofmachines };
     }));
 
-    
     if (searchQuery) {
       const lowerCaseSearchQuery = searchQuery.toLowerCase();
-      locations = locations.filter(location =>
-        location.machines.some(machine =>
-          machine.machineNumber.toLowerCase().includes(lowerCaseSearchQuery) ||
-          machine.serialNumber.toLowerCase().includes(lowerCaseSearchQuery)
-        )
-      );
+
+      // If statusofpayment is provided, filter locations before searching
+      if (statusofpayment !== undefined) {
+        locations = locations.filter(location =>
+          location.locationname.toLowerCase().includes(lowerCaseSearchQuery)
+        );
+      } else {
+        // If statusofpayment is not provided, search across all locations
+        locations = locations.filter(location =>
+          location.locationname.toLowerCase().includes(lowerCaseSearchQuery)
+        );
+      }
     }
 
     let paginatedLocations;
@@ -246,15 +344,15 @@ const getAllLocationsForUser = asyncHandler(async (req, res) => {
 
       paginatedLocations = locations.slice(skip, skip + limit);
       res.json({ locations: paginatedLocations, totalPages, currentPage });
-    } else {
-      res.json({ locations, totalCount: locations.length });
+
+      return; // Added return statement to avoid setting headers after sending the response
     }
+
+    res.json({ locations, totalCount: locations.length });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });
-
-
 
 
 

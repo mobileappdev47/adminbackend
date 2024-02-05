@@ -727,32 +727,96 @@ const getMachinebyId = asyncHandler(async (req, res) => {
 
 // add repair to admin
 const addRepairToAdmin = asyncHandler(async (req, res) => {
-  const { userId } = req.params;
+  const { employeeId, locationId, machineId } = req.params;
 
   try {
-    // Create a new repair
-    const newRepair = new Repair(req.body);
+    const location = await Location.findById(locationId);
 
-    // Save the new repair
-    await newRepair.save();
-
-    // Get the user by ID
-    const user = await User.findById(userId);
-
-    if (!user) {
-      return res.status(404).json({ success: false, message: 'User not found' });
+    if (!location) {
+      return res.status(404).json({
+        success: false,
+        message: `Location not found for ID: ${locationId}`,
+      });
     }
 
-    // Add the new repair's ID to the user's repairs array
-    user.repairs.push(newRepair._id);
+    // Check if the employee is associated with the specified location
+    const isEmployeeInLocation = location.employees.includes(employeeId);
 
-    // Save the updated user
-    await user.save();
+    if (!isEmployeeInLocation) {
+      return res.status(403).json({
+        success: false,
+        message: 'Employee is not associated with the specified location',
+      });
+    }
 
-    return res.status(201).json({ success: true, message: "Repair added to user successfully", user });
+
+    // Check if the machine exists and belongs to the specified location
+    const existingMachine = await Machine.findOne({
+      _id: machineId,
+    });
+
+    if (!existingMachine) {
+      return res.status(404).json({
+        success: false,
+        message: `Machine not found in the specified location for ID: ${machineId}`,
+      });
+    }
+
+    // Update the existing machine
+    existingMachine.date = req.body.date || existingMachine.date;
+    existingMachine.time = req.body.time || existingMachine.time;
+    existingMachine.reporterName = req.body.reporterName || existingMachine.reporterName;
+    existingMachine.issue = req.body.issue || existingMachine.issue;
+    existingMachine.imageOfRepair = req.body.imageOfRepair || existingMachine.imageOfRepair;
+    existingMachine.location = locationId;
+
+    // Save the updated machine
+    await existingMachine.save();
+
+    // Update the statusOfPayment in the associated location to true
+    const locationToUpdate = await Location.findOneAndUpdate(
+      { _id: locationId },
+      { $set: { statusOfPayment: true } },
+      { new: true }
+    );
+
+    if (!locationToUpdate) {
+      console.error('Location not found for the given ID:', locationId);
+      return res.status(404).json({ success: false, message: 'Location not found' });
+    }
+
+    // Find or create a Repair document and update it
+    const filter = { location: locationId };
+    const update = {
+      $addToSet: { machines: existingMachine._id },
+    };
+    const options = { upsert: true, new: true };
+
+    const updatedRepairReport = await Repair.findOneAndUpdate(
+      { employee: employeeId, location: locationId },
+      update,
+      options
+    );
+
+    if (!updatedRepairReport) {
+      // Create a new Repair document if it doesn't exist for the employee and location
+      const newRepairReport = new Repair({
+        employee: employeeId,
+        location: locationId,
+        machines: [existingMachine._id],
+      });
+      await newRepairReport.save();
+    }
+
+    // Return the single repair report
+    return res.status(200).json({
+      success: true,
+      message: 'Repair report updated for the location',
+      data: { updatedLocation: locationToUpdate, updatedRepairReport },
+    });
   } catch (error) {
-    console.error(error);
-    return res.status(500).json({ success: false, error: "Internal server error" });
+    console.error('Error updating repair report:', error);
+    return res.status(500).json({ success: false, message: 'Internal Server Error' });
   }
 });
 
@@ -760,68 +824,53 @@ const addRepairToAdmin = asyncHandler(async (req, res) => {
 // get all repairs
 const getAllRepairs = asyncHandler(async (req, res) => {
   try {
-    const { userId } = req.params;
-    const { page, limit, search } = req.query;
-
-    // Get the user by ID and populate the 'repairs' field
-    const user = await User.findById(userId).populate("repairs");
+    // Find the first user
+    const user = await User.findOne();
 
     if (!user) {
-      return res.status(404).json({ error: "User not found" });
+      return res.status(404).json({ success: false, message: 'No user found' });
     }
 
-    // Map the repairs and include any necessary fields
-    const repairReports = user.repairs.map(report => ({
-      ...report.toObject({ getters: true }),
-      // Add other fields as needed
-    }));
+    // Retrieve employees of the user
+    const employees = await Employee.find();
 
-    // Apply search filter if search is provided
-    let filteredRepairs = repairReports;
-    if (search) {
-      const searchRegex = new RegExp(search, 'i');
-      filteredRepairs = repairReports.filter(report =>
-        // Add fields for search as needed
-        report.machineNumber && report.machineNumber.match(searchRegex) ||
-        report.serialNumber && report.serialNumber.match(searchRegex)
-
-      );
+    if (!employees || employees.length === 0) {
+      return res.status(404).json({ success: false, message: 'No employees found for the user' });
     }
 
-    if (!filteredRepairs || filteredRepairs.length === 0) {
-      // Return 404 status code for not found
-      return res.status(200).json({ success: true, filteredRepairs });
-    }
+    // Retrieve repair reports where the employee ID matches any of the employees associated with the user
+    const repairReports = await Repair.find({ employee: { $in: employees.map(emp => emp._id) } })
+      .populate({
+        path: 'machines',
+        model: 'Machine',
+      })
+      .populate({
+        path: 'location',
+        model: 'Location',
+        select: '_id locationname numofmachines',
+      })
+      .populate({
+        path: 'employee',
+        model: 'Employee',
+        select: '_id name otherEmployeeFields',
+      });
 
-    // Initialize total pages
-    let totalPages;
-
-    // Apply pagination logic if needed
-    let paginatedRepairs;
-    if (page && limit) {
-      const totalCount = filteredRepairs.length;
-      totalPages = Math.ceil(totalCount / limit);
-      const currentPage = parseInt(page);
-
-      const skip = (currentPage - 1) * limit;
-      paginatedRepairs = filteredRepairs.slice(skip, skip + limit);
-    } else {
-      // If page and limit are not provided, return all repair reports
-      paginatedRepairs = filteredRepairs;
+    if (!repairReports || repairReports.length === 0) {
+      return res.status(404).json({ success: false, message: 'No repair reports found for the user\'s employees' });
     }
 
     return res.status(200).json({
       success: true,
-      message: 'Repairs retrieved successfully',
-      repairs: paginatedRepairs,
-      totalPages,
-      currentPage: parseInt(page) || 1,
+      message: 'Repair reports retrieved successfully for the user\'s employees',
+      data: repairReports,
     });
   } catch (error) {
-    console.error('Error retrieving repairs:', error);
+    console.error('Error retrieving repair reports for the user\'s employees:', error);
     return res.status(500).json({ success: false, message: 'Internal Server Error' });
   }
 });
+
+
 
 
 // recent collection report

@@ -736,8 +736,6 @@ const addNewRepair = asyncHandler(async (req, res) => {
 });
 
 
-
-
 // get repairs report of employee
 const getAllRepairsReport = asyncHandler(async (req, res) => {
   const { employeeId } = req.params;

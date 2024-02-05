@@ -16,22 +16,22 @@ const machineSchema = new mongoose.Schema(
             previous: {
                 type: Number,
                 default: '0',
-                required: true,
+                // required: true,
             },
             current: {
                 type: Number,
                 default: '0',
-                required: true,
+                // required: true,
             },
         },
         outNumbers: {
             previous: {
                 type: Number,
-                required: true,
+                // required: true,
             },
             current: {
                 type: Number,
-                required: true,
+                // required: true,
             },
         },
         total: {
