@@ -355,8 +355,16 @@ const getAllLocationsForUser = asyncHandler(async (req, res) => {
 });
 
 
+const totalLoactions = asyncHandler(async(req,res ) => {
+  try {
+    const totalLocations = await Location.countDocuments();
+    res.json({ totalLocations });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+})
 
 
 
-
-module.exports = { addLocationToUser, updateLocation, deleteLocation, getAllLocationsForUser, getLocationbyId, updateActiveStatus }
+module.exports = { addLocationToUser, updateLocation, deleteLocation, getAllLocationsForUser, getLocationbyId, updateActiveStatus, totalLoactions }

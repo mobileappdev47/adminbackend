@@ -20,10 +20,8 @@ const {
     updateMachineStatus,
     createSuperAdmin,
     unableAdmin,
-    addRepairToAdmin,
-    getAllRepairs,
-    getAllRecentCollectionReports,
-    getLastTwoPendingRepairsAllEmployees
+    getLastTwoPendingRepairsAllEmployees,
+    getRecentCollectionReportsForUserEmployees
 } = require('../controllers/userCtrl');
 const { authMiddleware, isAdmin } = require('../middlerwares/authMiddleware');
 
@@ -50,11 +48,8 @@ router.put('/block/:userId', authMiddleware, isAdmin, blockedAdmin);
 router.put('/unblock/:userId', authMiddleware, isAdmin, unblockedAdmin);
 
 router.put('/editstatus/:adminId', authMiddleware, isAdmin, updateStatusUser);
-router.get('/recent-collection/report/:userId',authMiddleware, getAllRecentCollectionReports)
+router.get('/recent-collection/report/:userId',authMiddleware, getRecentCollectionReportsForUserEmployees)
 router.get('/pending-repairs/:userId', authMiddleware, getLastTwoPendingRepairsAllEmployees)
-// repair
-router.post('/addrepair/:userId', authMiddleware, addRepairToAdmin)
-router.get('/repairs/:userId', authMiddleware, getAllRepairs)
 
 
 

@@ -725,192 +725,53 @@ const getMachinebyId = asyncHandler(async (req, res) => {
   }
 })
 
-// add repair to admin
-const addRepairToAdmin = asyncHandler(async (req, res) => {
-  const { employeeId, locationId, machineId } = req.params;
-
-  try {
-    const location = await Location.findById(locationId);
-
-    if (!location) {
-      return res.status(404).json({
-        success: false,
-        message: `Location not found for ID: ${locationId}`,
-      });
-    }
-
-    // Check if the employee is associated with the specified location
-    const isEmployeeInLocation = location.employees.includes(employeeId);
-
-    if (!isEmployeeInLocation) {
-      return res.status(403).json({
-        success: false,
-        message: 'Employee is not associated with the specified location',
-      });
-    }
-
-
-    // Check if the machine exists and belongs to the specified location
-    const existingMachine = await Machine.findOne({
-      _id: machineId,
-    });
-
-    if (!existingMachine) {
-      return res.status(404).json({
-        success: false,
-        message: `Machine not found in the specified location for ID: ${machineId}`,
-      });
-    }
-
-    // Update the existing machine
-    existingMachine.date = req.body.date || existingMachine.date;
-    existingMachine.time = req.body.time || existingMachine.time;
-    existingMachine.reporterName = req.body.reporterName || existingMachine.reporterName;
-    existingMachine.issue = req.body.issue || existingMachine.issue;
-    existingMachine.imageOfRepair = req.body.imageOfRepair || existingMachine.imageOfRepair;
-    existingMachine.location = locationId;
-
-    // Save the updated machine
-    await existingMachine.save();
-
-    // Update the statusOfPayment in the associated location to true
-    const locationToUpdate = await Location.findOneAndUpdate(
-      { _id: locationId },
-      { $set: { statusOfPayment: true } },
-      { new: true }
-    );
-
-    if (!locationToUpdate) {
-      console.error('Location not found for the given ID:', locationId);
-      return res.status(404).json({ success: false, message: 'Location not found' });
-    }
-
-    // Find or create a Repair document and update it
-    const filter = { location: locationId };
-    const update = {
-      $addToSet: { machines: existingMachine._id },
-    };
-    const options = { upsert: true, new: true };
-
-    const updatedRepairReport = await Repair.findOneAndUpdate(
-      { employee: employeeId, location: locationId },
-      update,
-      options
-    );
-
-    if (!updatedRepairReport) {
-      // Create a new Repair document if it doesn't exist for the employee and location
-      const newRepairReport = new Repair({
-        employee: employeeId,
-        location: locationId,
-        machines: [existingMachine._id],
-      });
-      await newRepairReport.save();
-    }
-
-    // Return the single repair report
-    return res.status(200).json({
-      success: true,
-      message: 'Repair report updated for the location',
-      data: { updatedLocation: locationToUpdate, updatedRepairReport },
-    });
-  } catch (error) {
-    console.error('Error updating repair report:', error);
-    return res.status(500).json({ success: false, message: 'Internal Server Error' });
-  }
-});
-
-
-// get all repairs
-const getAllRepairs = asyncHandler(async (req, res) => {
-  try {
-    // Find the first user
-    const user = await User.findOne();
-
-    if (!user) {
-      return res.status(404).json({ success: false, message: 'No user found' });
-    }
-
-    // Retrieve employees of the user
-    const employees = await Employee.find();
-
-    if (!employees || employees.length === 0) {
-      return res.status(404).json({ success: false, message: 'No employees found for the user' });
-    }
-
-    // Retrieve repair reports where the employee ID matches any of the employees associated with the user
-    const repairReports = await Repair.find({ employee: { $in: employees.map(emp => emp._id) } })
-      .populate({
-        path: 'machines',
-        model: 'Machine',
-      })
-      .populate({
-        path: 'location',
-        model: 'Location',
-        select: '_id locationname numofmachines',
-      })
-      .populate({
-        path: 'employee',
-        model: 'Employee',
-        select: '_id name otherEmployeeFields',
-      });
-
-    if (!repairReports || repairReports.length === 0) {
-      return res.status(404).json({ success: false, message: 'No repair reports found for the user\'s employees' });
-    }
-
-    return res.status(200).json({
-      success: true,
-      message: 'Repair reports retrieved successfully for the user\'s employees',
-      data: repairReports,
-    });
-  } catch (error) {
-    console.error('Error retrieving repair reports for the user\'s employees:', error);
-    return res.status(500).json({ success: false, message: 'Internal Server Error' });
-  }
-});
-
-
-
 
 // recent collection report
-const getAllRecentCollectionReports = asyncHandler(async (req, res) => {
+const getRecentCollectionReportsForUserEmployees = asyncHandler(async (req, res) => {
   const { userId } = req.params;
 
   try {
-    // Find the user by ID
-    const user = await User.findById(userId)
-      .populate({
-        path: 'employees',
-        populate: {
-          path: 'newCollectionReports',
-          options: { sort: { _id: -1 } },
-          populate: {
-            path: 'location',
-            model: 'Location',
-            select: 'locationname _id address numofmachines createdAt',
-          },
-        },
-      })
-      .exec();
+    // Find the user based on userId
+    const user = await User.findById(userId).populate('employees');
 
     if (!user) {
-      return res.status(404).json({ success: false, message: 'User not found' });
+      return res.status(404).json({
+        success: false,
+        message: 'User not found',
+      });
     }
 
-    // Flatten and sort the collection reports across all employees
-    const allCollectionReports = user.employees
-      .flatMap(employee => employee.newCollectionReports)
-      .sort((a, b) => b.createdAt - a.createdAt)
-      .slice(0, 3);
+    // Extract employee IDs from the user's employees
+    const employeeIds = user.employees.map(employee => employee._id);
+
+    // Find the recent collection reports for all employees associated with the user
+    const recentCollectionReports = await CollectionReport
+      .find({ employee: { $in: employeeIds } })
+      .sort({ updatedAt: -1 })
+      .populate({
+        path: 'machines',
+        model: 'Machine', // Adjust the model name as per your schema
+      })
+      .populate({
+        path: 'location',
+        model: 'Location', // Adjust the model name as per your schema
+        select: '_id locationname address numofmachines'
+      });
+
+    if (recentCollectionReports.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'No collection reports found for the employees associated with the user',
+      });
+    }
 
     return res.status(200).json({
       success: true,
-      message: 'Last three collection reports for all employees retrieved successfully',
-      allCollectionReports,
+      message: 'Recent collection reports for user employees retrieved successfully',
+      data: recentCollectionReports,
     });
   } catch (error) {
-    console.error('Error retrieving last three collection reports:', error);
+    console.error('Error fetching recent collection reports for user employees:', error);
     return res.status(500).json({ success: false, message: 'Internal Server Error' });
   }
 });
@@ -921,47 +782,47 @@ const getLastTwoPendingRepairsAllEmployees = asyncHandler(async (req, res) => {
   const { userId } = req.params;
 
   try {
-    // Find the user by ID
-    const user = await User.findById(userId)
-      .populate({
-        path: 'employees',
-        populate: {
-          path: 'newRepairs',
-          match: { statusOfRepair: 'Pending' }, // Filter by statusOfRepair: 'Pending'
-          options: { sort: { _id: -1 }, limit: 2 }, // Sort by createdAt in descending order, limit to 2
-          populate: {
-            path: 'location',
-            model: 'Location',
-            select: 'locationname _id',
-          },
-        },
-      })
-      .exec();
+    // Find the user based on userId
+    const user = await User.findById(userId).populate('employees');
 
     if (!user) {
-      return res.status(404).json({ success: false, message: 'User not found' });
+      return res.status(404).json({
+        success: false,
+        message: 'User not found',
+      });
     }
 
-    // Flatten and sort the repair reports across all employees
-    const allPendingRepairs = user.employees
-      .flatMap(employee => employee.newRepairs)
-      .filter(report => report.statusOfRepair === 'Pending')
-      .sort((a, b) => b.createdAt - a.createdAt)
-      .slice(0, 2);
+    // Extract employee IDs from the user's employees
+    const employeeIds = user.employees.map(employee => employee._id);
 
-    // Map the repair reports and include the location field
-    const adjustedResponse = allPendingRepairs.map(report => ({
-      ...report.toObject({ getters: true }),
-      location: report.location ? report.location.locationname : null,
-    }));
+    // Find the last two pending repair reports for all employees associated with the user
+    const lastTwoPendingRepairs = await Repair.find({ employee: { $in: employeeIds }, machines: { $ne: [] } })
+      .sort({ _id: -1 })
+      .limit(2)
+      .populate({
+        path: 'machines',
+        model: 'Machine',
+      })
+      .populate({
+        path: 'location',
+        model: 'Location',
+        select: '_id locationname numofmachines'
+      });
+
+    if (lastTwoPendingRepairs.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'No pending repair reports found for the employees associated with the user',
+      });
+    }
 
     return res.status(200).json({
       success: true,
-      message: 'Last two pending repair reports from all employees retrieved successfully',
-      lastTwoPendingRepairsAllEmployees: adjustedResponse,
+      message: 'Last two pending repair reports retrieved successfully for the employees associated with the user',
+      data: lastTwoPendingRepairs,
     });
   } catch (error) {
-    console.error('Error retrieving last two pending repair reports from all employees:', error);
+    console.error('Error retrieving last two pending repair reports:', error);
     return res.status(500).json({ success: false, message: 'Internal Server Error' });
   }
 });
@@ -973,5 +834,5 @@ module.exports = {
   createUser, loginUserCtrl, loginAdmin, addRestrictionDate, getAllUsers, getaUser, deleteaUser,
   updatedUser, updateStatusUser, addMachineToUserLocation, updateMachineInUserLocation, updateMachineStatus,
   deleteMachineFromUser, getMachinesOfUser, getMachinebyId, getMachinesByLocationId, unableAdmin, blockedAdmin, unblockedAdmin,
-  addRepairToAdmin, getAllRepairs, getAllRecentCollectionReports, getLastTwoPendingRepairsAllEmployees
+  getLastTwoPendingRepairsAllEmployees,getRecentCollectionReportsForUserEmployees
 }
