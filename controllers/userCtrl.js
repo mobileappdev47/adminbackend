@@ -726,6 +726,124 @@ const getMachinebyId = asyncHandler(async (req, res) => {
 })
 
 
+// total collection report
+const getTotalCollectionReportsForUserEmployees = asyncHandler(async (req, res) => {
+  const { userId } = req.params;
+
+  try {
+    // Find the user based on userId
+    const user = await User.findById(userId).populate('employees');
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found',
+      });
+    }
+
+    // Extract employee IDs from the user's employees
+    const employeeIds = user.employees.map(employee => employee._id);
+
+    // Find all collection reports for all employees associated with the user
+    const allCollectionReports = await CollectionReport
+      .find({ employee: { $in: employeeIds } })
+      .populate({
+        path: 'machines',
+        model: 'Machine', // Adjust the model name as per your schema
+      });
+
+    // Initialize an array to store the total profit for each month, with zero values for all months
+    const monthlyTotals = Array.from({ length: 12 }, () => 0);
+
+    // Iterate through each collection report
+    allCollectionReports.forEach(report => {
+      // Extract the month from the updatedAt field of the report
+      const month = report.updatedAt.getMonth(); // Assuming updatedAt is a date field
+
+      // Iterate through each machine in the report and add its total to the corresponding month's total
+      report.machines.forEach(machine => {
+        // Convert the total to a number before adding it to the monthly total
+        const total = parseFloat(machine.total);
+        if (!isNaN(total)) {
+          monthlyTotals[month] += total;
+        }
+      });
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: 'Total collection reports for user employees retrieved successfully',
+      monthlyTotals: monthlyTotals,
+    });
+  } catch (error) {
+    console.error('Error fetching total collection reports for user employees:', error);
+    return res.status(500).json({ success: false, message: 'Internal Server Error' });
+  }
+});
+
+
+const getTotalInNumbersForUserEmployees = asyncHandler(async (req, res) => {
+  const { userId } = req.params;
+
+  try {
+    // Find the user based on userId
+    const user = await User.findById(userId).populate('employees');
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found',
+      });
+    }
+
+    // Extract employee IDs from the user's employees
+    const employeeIds = user.employees.map(employee => employee._id);
+
+    // Find all collection reports for all employees associated with the user
+    const allCollectionReports = await CollectionReport
+      .find({ employee: { $in: employeeIds } })
+      .populate({
+        path: 'machines',
+        model: 'Machine', // Adjust the model name as per your schema
+      });
+
+    // Initialize variables to store the total inNumber and outNumber differences for the full year
+    let totalInNumberDifference = 0;
+    let totalOutNumberDifference = 0;
+
+    // Iterate through each collection report
+    allCollectionReports.forEach(report => {
+      // Iterate through each machine in the report
+      report.machines.forEach(machine => {
+        // Subtract previous inNumber from current inNumber and previous outNumber from current outNumber
+        const inNumberDifference = machine.inNumbers.previous - machine.inNumbers.current ;
+        const outNumberDifference = machine.outNumbers.previous - machine.outNumbers.current;
+        
+        // Add the differences to the total
+        totalInNumberDifference += inNumberDifference;
+        totalOutNumberDifference += outNumberDifference;
+      });
+    });
+
+    // Calculate profit
+    const profit = totalOutNumberDifference - totalInNumberDifference;
+
+    return res.status(200).json({
+      success: true,
+      message: 'Total inNumber and outNumber differences for user employees retrieved successfully',
+      totalInNumberDifference: totalInNumberDifference,
+      totalOutNumberDifference: totalOutNumberDifference,
+      profit: profit
+    });
+  } catch (error) {
+    console.error('Error fetching total inNumber and outNumber differences for user employees:', error);
+    return res.status(500).json({ success: false, message: 'Internal Server Error' });
+  }
+});
+
+
+
+
 // recent collection report
 const getRecentCollectionReportsForUserEmployees = asyncHandler(async (req, res) => {
   const { userId } = req.params;
@@ -834,5 +952,5 @@ module.exports = {
   createUser, loginUserCtrl, loginAdmin, addRestrictionDate, getAllUsers, getaUser, deleteaUser,
   updatedUser, updateStatusUser, addMachineToUserLocation, updateMachineInUserLocation, updateMachineStatus,
   deleteMachineFromUser, getMachinesOfUser, getMachinebyId, getMachinesByLocationId, unableAdmin, blockedAdmin, unblockedAdmin,
-  getLastTwoPendingRepairsAllEmployees,getRecentCollectionReportsForUserEmployees
+  getLastTwoPendingRepairsAllEmployees,getTotalCollectionReportsForUserEmployees,getTotalInNumbersForUserEmployees, getRecentCollectionReportsForUserEmployees
 }
