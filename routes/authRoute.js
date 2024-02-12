@@ -23,7 +23,8 @@ const {
     getLastTwoPendingRepairsAllEmployees,
     getRecentCollectionReportsForUserEmployees,
     getTotalCollectionReportsForUserEmployees,
-    getTotalInNumbersForUserEmployees
+    getTotalInNumbersForUserEmployees,
+    getAllRepairsAllEmployees
 } = require('../controllers/userCtrl');
 const { authMiddleware, isAdmin } = require('../middlerwares/authMiddleware');
 
@@ -54,7 +55,7 @@ router.get('/total-collection/report/:userId', authMiddleware, getTotalCollectio
 router.get('/total-num-collection/report/:userId', authMiddleware, getTotalInNumbersForUserEmployees)
 router.get('/recent-collection/report/:userId',authMiddleware, getRecentCollectionReportsForUserEmployees)
 router.get('/pending-repairs/:userId', authMiddleware, getLastTwoPendingRepairsAllEmployees)
-
+router.get('/repairs/:userId', authMiddleware, getAllRepairsAllEmployees)
 
 
 // machine

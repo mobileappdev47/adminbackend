@@ -946,11 +946,61 @@ const getLastTwoPendingRepairsAllEmployees = asyncHandler(async (req, res) => {
 });
 
 
+const getAllRepairsAllEmployees = asyncHandler(async (req, res) => {
+  const { userId } = req.params;
+
+  try {
+    // Find the user based on userId
+    const user = await User.findById(userId).populate('employees');
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found',
+      });
+    }
+
+    // Extract employee IDs from the user's employees
+    const employeeIds = user.employees.map(employee => employee._id);
+
+    // Find all pending repair reports for all employees associated with the user
+    const allRepairs = await Repair.find({ employee: { $in: employeeIds }, machines: { $ne: [] } })
+      .sort({ _id: -1 })
+      .populate({
+        path: 'machines',
+        model: 'Machine',
+      })
+      .populate({
+        path: 'location',
+        model: 'Location',
+        select: '_id locationname numofmachines'
+      });
+
+    if (allRepairs.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'No repair reports found for the employees associated with the user',
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: 'All repair reports retrieved successfully for the employees associated with the user',
+      data: allRepairs,
+    });
+  } catch (error) {
+    console.error('Error retrieving all repair reports:', error);
+    return res.status(500).json({ success: false, message: 'Internal Server Error' });
+  }
+});
+
+
 
 module.exports = {
   createSuperAdmin,
   createUser, loginUserCtrl, loginAdmin, addRestrictionDate, getAllUsers, getaUser, deleteaUser,
   updatedUser, updateStatusUser, addMachineToUserLocation, updateMachineInUserLocation, updateMachineStatus,
   deleteMachineFromUser, getMachinesOfUser, getMachinebyId, getMachinesByLocationId, unableAdmin, blockedAdmin, unblockedAdmin,
-  getLastTwoPendingRepairsAllEmployees,getTotalCollectionReportsForUserEmployees,getTotalInNumbersForUserEmployees, getRecentCollectionReportsForUserEmployees
+  getLastTwoPendingRepairsAllEmployees,getTotalCollectionReportsForUserEmployees,getTotalInNumbersForUserEmployees, getRecentCollectionReportsForUserEmployees,
+  getAllRepairsAllEmployees
 }
