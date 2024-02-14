@@ -12,6 +12,10 @@ const machineSchema = new mongoose.Schema(
             // required: true,
             unique: true,
         },
+        initialnumber: {
+            type: String,
+            default: "$0",
+        },
         inNumbers: {
             previous: {
                 type: Number,

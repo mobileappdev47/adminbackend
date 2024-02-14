@@ -413,7 +413,7 @@ const unblockedAdmin = asyncHandler(async (req, res) => {
 // user add machine
 const addMachineToUserLocation = asyncHandler(async (req, res) => {
   const { userId } = req.params;
-  const { locationId, employeeIds, machineNumber, serialNumber, gameName } = req.body;
+  const { locationId, employeeIds, machineNumber, serialNumber, gameName, initialnumber } = req.body;
 
   try {
     const user = await User.findById(userId).populate('location');
@@ -432,7 +432,7 @@ const addMachineToUserLocation = asyncHandler(async (req, res) => {
       return res.status(400).json({ success: false, message: 'Serial number already added' });
     }
 
-    const newMachine = new Machine({ machineNumber, serialNumber,gameName });
+    const newMachine = new Machine({ machineNumber, serialNumber,gameName, initialnumber });
     newMachine.employees = employeeIds;
 
     await newMachine.save();
@@ -463,7 +463,7 @@ const addMachineToUserLocation = asyncHandler(async (req, res) => {
 // update machine
 const updateMachineInUserLocation = asyncHandler(async (req, res) => {
   const { userId } = req.params;
-  const { machineId, machineNumber, serialNumber, employeeIds, gameName, initialNumber, currentNumber } = req.body;
+  const { machineId, machineNumber, serialNumber, employeeIds, gameName, initialnumber, currentNumber } = req.body;
 
   try {
     const user = await User.findById(userId).populate('location');
@@ -479,7 +479,7 @@ const updateMachineInUserLocation = asyncHandler(async (req, res) => {
     // Update machine details if provided in the request
     existingMachine.machineNumber = machineNumber || existingMachine.machineNumber;
     existingMachine.serialNumber = serialNumber || existingMachine.serialNumber;
-    existingMachine.initialNumber = initialNumber || existingMachine.initialNumber;
+    existingMachine.initialnumber = initialnumber || existingMachine.initialnumber;
     existingMachine.currentNumber = currentNumber || existingMachine.currentNumber;
     existingMachine.gameName = gameName || existingMachine.gameName;
     existingMachine.employees = employeeIds || existingMachine.employees;
@@ -877,9 +877,11 @@ const getRecentCollectionReportsForUserEmployees = asyncHandler(async (req, res)
       });
 
     if (recentCollectionReports.length === 0) {
-      return res.status(404).json({
-        success: false,
+      // Return an empty array if no collection reports are found
+      return res.status(200).json({
+        success: true,
         message: 'No collection reports found for the employees associated with the user',
+        data: [], // Empty array
       });
     }
 
@@ -893,6 +895,7 @@ const getRecentCollectionReportsForUserEmployees = asyncHandler(async (req, res)
     return res.status(500).json({ success: false, message: 'Internal Server Error' });
   }
 });
+
 
 
 // pending repairs 
@@ -928,9 +931,11 @@ const getLastTwoPendingRepairsAllEmployees = asyncHandler(async (req, res) => {
       });
 
     if (lastTwoPendingRepairs.length === 0) {
-      return res.status(404).json({
-        success: false,
+      // Return an empty array if no pending repair reports are found
+      return res.status(200).json({
+        success: true,
         message: 'No pending repair reports found for the employees associated with the user',
+        data: [], // Empty array
       });
     }
 
@@ -944,6 +949,7 @@ const getLastTwoPendingRepairsAllEmployees = asyncHandler(async (req, res) => {
     return res.status(500).json({ success: false, message: 'Internal Server Error' });
   }
 });
+
 
 
 const getAllRepairsAllEmployees = asyncHandler(async (req, res) => {
@@ -977,9 +983,11 @@ const getAllRepairsAllEmployees = asyncHandler(async (req, res) => {
       });
 
     if (allRepairs.length === 0) {
-      return res.status(404).json({
-        success: false,
+      // Return an empty array if no repair reports are found
+      return res.status(200).json({
+        success: true,
         message: 'No repair reports found for the employees associated with the user',
+        data: [], // Empty array
       });
     }
 
@@ -993,6 +1001,7 @@ const getAllRepairsAllEmployees = asyncHandler(async (req, res) => {
     return res.status(500).json({ success: false, message: 'Internal Server Error' });
   }
 });
+
 
 
 
