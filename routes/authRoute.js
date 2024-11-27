@@ -24,7 +24,8 @@ const {
     getRecentCollectionReportsForUserEmployees,
     getTotalCollectionReportsForUserEmployees,
     getTotalInNumbersForUserEmployees,
-    getAllRepairsAllEmployees
+    getAllRepairsAllEmployees,
+    getTotalCollectionReportsAdminForUserEmployees
 } = require('../controllers/userCtrl');
 const { authMiddleware, isAdmin } = require('../middlerwares/authMiddleware');
 
@@ -52,6 +53,7 @@ router.put('/unblock/:userId', authMiddleware, isAdmin, unblockedAdmin);
 
 router.put('/editstatus/:adminId', authMiddleware, isAdmin, updateStatusUser);
 router.get('/total-collection/report/:userId', authMiddleware, getTotalCollectionReportsForUserEmployees)
+router.get('/collectionall/report/:userId', authMiddleware, getTotalCollectionReportsAdminForUserEmployees)
 router.get('/total-num-collection/report/:userId', authMiddleware, getTotalInNumbersForUserEmployees)
 router.get('/recent-collection/report/:userId',authMiddleware, getRecentCollectionReportsForUserEmployees)
 router.get('/pending-repairs/:userId', authMiddleware, getLastTwoPendingRepairsAllEmployees)

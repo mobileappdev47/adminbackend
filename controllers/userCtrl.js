@@ -782,6 +782,53 @@ const getTotalCollectionReportsForUserEmployees = asyncHandler(async (req, res) 
 });
 
 
+const getTotalCollectionReportsAdminForUserEmployees = asyncHandler(async (req, res) => {
+  const { userId } = req.params;
+
+  try {
+    // Find the user based on userId
+    const user = await User.findById(userId).populate('employees');
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found',
+      });
+    }
+
+    // Extract employee IDs from the user's employees
+    const employeeIds = user.employees.map(employee => employee._id);
+
+    // Find all collection reports for all employees associated with the user
+    const allCollectionReports = await CollectionReport
+      .find({ employee: { $in: employeeIds } })
+      .populate({
+        path: 'machines',
+        model: 'Machine', // Adjust the model name as per your schema
+      })
+      .populate({
+        path: 'location',
+        model: 'Location', // Adjust the model name as per your schema
+      })
+      .populate({
+        path: 'employee',
+        model: 'Employee', // Adjust the model name as per your schema
+      });
+
+      console.log(allCollectionReports, 'allCollectionReports');
+
+    return res.status(200).json({
+      success: true,
+      message: 'Total collection reports for user employees retrieved successfully',
+      allCollectionReports: allCollectionReports,
+    });
+  } catch (error) {
+    console.error('Error fetching total collection reports for user employees:', error);
+    return res.status(500).json({ success: false, message: 'Internal Server Error' });
+  }
+});
+
+
 const getTotalInNumbersForUserEmployees = asyncHandler(async (req, res) => {
   const { userId } = req.params;
 
@@ -1010,6 +1057,6 @@ module.exports = {
   createUser, loginUserCtrl, loginAdmin, addRestrictionDate, getAllUsers, getaUser, deleteaUser,
   updatedUser, updateStatusUser, addMachineToUserLocation, updateMachineInUserLocation, updateMachineStatus,
   deleteMachineFromUser, getMachinesOfUser, getMachinebyId, getMachinesByLocationId, unableAdmin, blockedAdmin, unblockedAdmin,
-  getLastTwoPendingRepairsAllEmployees,getTotalCollectionReportsForUserEmployees,getTotalInNumbersForUserEmployees, getRecentCollectionReportsForUserEmployees,
+  getLastTwoPendingRepairsAllEmployees,getTotalCollectionReportsForUserEmployees, getTotalCollectionReportsAdminForUserEmployees, getTotalInNumbersForUserEmployees, getRecentCollectionReportsForUserEmployees,
   getAllRepairsAllEmployees
 }
